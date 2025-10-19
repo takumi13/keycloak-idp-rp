@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+
+# Maven wrapper script
+
+MAVEN_VERSION=3.9.11
+MVN_CMD="./mvnw"
+
+if [ -z "$MAVEN_HOME" ]; then
+  if [ -f "$MVN_CMD" ]; then
+    exec "$MVN_CMD" "$@"
+  else
+    echo "Maven wrapper not found. Please install Maven."
+    exit 1
+  fi
+else
+  exec "$MAVEN_HOME/bin/mvn" "$@"
+fi

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Authorization Request Builder</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 900px; }
+    label { display:block; margin-top:12px; font-weight:600; }
+    input[type="text"], textarea { width:100%; padding:8px; box-sizing:border-box; }
+    .row { display:flex; gap:12px; }
+    .col { flex:1; }
+    .actions { margin-top:16px; }
+    .hint { color:#666; font-size:0.9em; }
+  </style>
+</head>
+<body>
+  <h1>Authorization Request Builder</h1>
+  <p class="hint">各パラメータを編集して「Submit」でサーバへPOSTします。<br>
+     「Preview URL」でクライアント側で組み立てた認可エンドポイントへブラウザを開き確認できます。</p>
+
+  <form method="post" action="/authorize">
+    <label>authorization_endpoint
+      <input type="text" name="authorization_endpoint" id="authorization_endpoint"
+             value="http://localhost:8080/realms/myrealm/protocol/openid-connect/auth" />
+    </label>
+
+    <div class="row">
+      <div class="col">
+        <label>response_type
+          <input type="text" name="response_type" id="response_type" value="code" />
+        </label>
+      </div>
+      <div class="col">
+        <label>client_id
+          <input type="text" name="client_id" id="client_id" value="semi_client" />
+        </label>
+      </div>
+    </div>
+
+    <label>redirect_uri
+      <input type="text" name="redirect_uri" id="redirect_uri" value="http://localhost:8081/callback" />
+    </label>
+
+    <label>scope
+      <input type="text" name="scope" id="scope" value="openid profile" />
+    </label>
+
+    <div class="row">
+      <div class="col">
+        <label>state
+          <input type="text" name="state" id="state" value="xyz" />
+        </label>
+      </div>
+      <div class="col">
+        <label>nonce
+          <input type="text" name="nonce" id="nonce" value="" placeholder="任意" />
+        </label>
+      </div>
+    </div>
+
+    <!-- PKCE: code_verifier を追加 -->
+    <label>code_verifier (PKCE, サーバで code_challenge を生成)
+      <input type="text" name="code_verifier" id="code_verifier" value="hogefuga" />
+      <div class="hint">空欄の場合は PKCE を使用しません。code_verifier は英数字等を指定してください。</div>
+    </label>
+
+    <label>additional_params (key=value の改行区切り)
+      <textarea name="additional_params" id="additional_params" rows="4"
+                placeholder="prompt=consent&#10;response_mode=form_post"></textarea>
+    </label>
+
+    <div class="actions">
+      <button type="button" id="previewBtn">Preview URL</button>
+      <button type="submit">Submit (POST /authorize)</button>
+    </div>
+  </form>
+
+  <script>
+    function encode(s){ return encodeURIComponent(s==null?"":s); }
+
+    function buildUrl() {
+      const endpoint = document.getElementById('authorization_endpoint').value.trim();
+      const params = new URLSearchParams();
+      const add = (k,v)=>{ if(v!==null && v!==undefined && String(v)!=='') params.append(k,v); };
+
+      add('response_type', document.getElementById('response_type').value.trim());
+      add('client_id', document.getElementById('client_id').value.trim());
+      add('redirect_uri', document.getElementById('redirect_uri').value.trim());
+      add('scope', document.getElementById('scope').value.trim());
+      add('state', document.getElementById('state').value.trim());
+      const nonce = document.getElementById('nonce').value.trim();
+      if(nonce) add('nonce', nonce);
+
+      // Preview はクライアント側で code_verifier -> code_challenge を生成しないため
+      // code_verifier は表示しない。サーバへPOSTするとサーバが code_challenge を生成します。
+
+      const extra = document.getElementById('additional_params').value.trim();
+      if(extra){
+        extra.split(/\r?\n/).forEach(line => {
+          const idx = line.indexOf('=');
+          if(idx>0){
+            const k = line.substring(0,idx).trim();
+            const v = line.substring(idx+1).trim();
+            if(k) add(k,v);
+          }
+        });
+      }
+
+      const sep = endpoint.includes('?') ? '&' : '?';
+      return endpoint + sep + params.toString();
+    }
+
+    document.getElementById('previewBtn').addEventListener('click', function(){
+      const url = buildUrl();
+      window.open(url, '_blank');
+    });
+  </script>
+</body>
+</html>

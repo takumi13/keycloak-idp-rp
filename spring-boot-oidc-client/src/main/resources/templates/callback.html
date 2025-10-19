@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Authorization Callback</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;padding:20px;max-width:900px}
+    h1{font-size:1.2rem}
+    table{border-collapse:collapse;width:100%;margin-top:12px}
+    th,td{border:1px solid #ddd;padding:8px;text-align:left}
+    th{background:#f2f2f2}
+    .actions{margin-top:16px;display:flex;gap:8px}
+    .btn{padding:8px 12px;border:0;background:#1976d2;color:#fff;border-radius:4px;cursor:pointer;text-decoration:none}
+    .btn.secondary{background:#666}
+    .hint{color:#666;font-size:0.9rem;margin-top:8px}
+    pre{background:#f8f8f8;padding:8px;border-radius:4px;overflow:auto}
+  </style>
+</head>
+<body>
+  <h1>Authorization Callback</h1>
+  <p class="hint">このページは認可応答 (クエリパラメータ) を表示します。</p>
+
+  <div id="result">
+    <p>読み込み中…</p>
+  </div>
+
+  <div class="actions">
+    <a class="btn" id="backBtn" href="/authorization_flow">Back to Authorization Flow</a>
+    <a class="btn secondary" id="logoutBtn"
+       href="http://localhost:8080/realms/myrealm/protocol/openid-connect/logout?client_id=semi_client&post_logout_redirect_uri=http%3A%2F%2Flocalhost%3A8081%2F">
+       Logout
+    </a>
+  </div>
+
+  <script>
+    function parseQuery(qs) {
+      if (!qs) return {};
+      const s = qs.startsWith('?') ? qs.substring(1) : qs;
+      const params = new URLSearchParams(s);
+      const obj = {};
+      for (const [k, v] of params.entries()) {
+        if (obj[k] === undefined) obj[k] = v;
+        else if (Array.isArray(obj[k])) obj[k].push(v);
+        else obj[k] = [obj[k], v];
+      }
+      return obj;
+    }
+
+    function render() {
+      const query = window.location.search || '';
+      const params = parseQuery(query);
+      const container = document.getElementById('result');
+      container.innerHTML = '';
+
+      const info = document.createElement('div');
+      const raw = document.createElement('div');
+      raw.innerHTML = '<strong>Raw query string</strong>';
+      const pre = document.createElement('pre');
+      pre.textContent = query || '(none)';
+      raw.appendChild(pre);
+      container.appendChild(raw);
+
+      const keys = Object.keys(params);
+      if (keys.length === 0) {
+        const p = document.createElement('p');
+        p.textContent = 'クエリパラメータが見つかりません。';
+        container.appendChild(p);
+        return;
+      }
+
+      const tbl = document.createElement('table');
+      const thead = document.createElement('thead');
+      thead.innerHTML = '<tr><th>Parameter</th><th>Value</th></tr>';
+      tbl.appendChild(thead);
+      const tbody = document.createElement('tbody');
+
+      keys.forEach(k => {
+        const v = params[k];
+        const tr = document.createElement('tr');
+        const tdKey = document.createElement('td');
+        tdKey.textContent = k;
+        const tdVal = document.createElement('td');
+        if (Array.isArray(v)) {
+          tdVal.innerHTML = v.map(x => '<div>' + escapeHtml(x) + '</div>').join('');
+        } else {
+          tdVal.textContent = v;
+        }
+        tr.appendChild(tdKey);
+        tr.appendChild(tdVal);
+        tbody.appendChild(tr);
+      });
+
+      tbl.appendChild(tbody);
+      container.appendChild(tbl);
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // 初期レンダリング
+    render();
+  </script>
+</body>
+</html>
