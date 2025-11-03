@@ -1,2 +1,4 @@
 .env
 spring-boot-oidc-client/target/*
+spring-boot-oidc-client/local/*
+.vscode/*

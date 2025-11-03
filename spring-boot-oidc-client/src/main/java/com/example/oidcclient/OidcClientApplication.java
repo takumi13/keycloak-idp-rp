@@ -13,8 +13,13 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @SpringBootApplication
 public class OidcClientApplication {
+
+    private static final Logger logger = LoggerFactory.getLogger(OidcClientApplication.class);
 
     public static void main(String[] args) throws Exception {
         SpringApplication.run(OidcClientApplication.class, args);
@@ -42,6 +47,9 @@ public class OidcClientApplication {
         String form = formParams.entrySet().stream()
                 .map(e -> urlEncode(e.getKey()) + "=" + urlEncode(e.getValue()))
                 .collect(Collectors.joining("&"));
+
+        logger.debug("Requesting token from: " + tokenEndpoint);
+        formParams.forEach((k, v) -> logger.debug("Param: " + k + " = " + v));
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(tokenEndpoint))
