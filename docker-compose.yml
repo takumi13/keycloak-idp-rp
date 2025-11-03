@@ -32,6 +32,16 @@ services:
       KC_DB_URL_DATABASE: ${KC_DB_URL_DATABASE}
       KC_DB_USERNAME: ${KC_DB_USERNAME}
       KC_DB_PASSWORD: ${KC_DB_PASSWORD}
+      # ------------------------------------------------
+      # Quarkus / Keycloak ログレベルを DEBUG に設定
+      # ------------------------------------------------
+      KC_LOG: "console,file"
+      KC_LOG-FILE: "data/server.log"
+      KC_LOG-LEVEL: "DEBUG"
+      QUARKUS_HTTP_ACCESS_LOG_LOG_DIRECTORY: "logs"
+      QUARKUS_HTTP_ACCESS_LOG_BASE_FILE_NAME: "access"
+      QUARKUS_HTTP_RECORD_REQUEST_START_TIME: true
+      QUARKUS_HTTP_ACCESS_LOG_PATTERN: "%h %l %u %t \"%r\" %s %b \"%{i,Referer}\" \"%{i,User-Agent}\" %D"
     ports:
       - "8080:8080"
     depends_on:
