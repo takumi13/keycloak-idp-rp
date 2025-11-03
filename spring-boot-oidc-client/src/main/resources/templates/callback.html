@@ -105,6 +105,48 @@
         .replace(/'/g, '&#039;');
     }
 
+    // base64url -> base64 変換して atob でデコード（UTF-8 対応）
+    function base64UrlDecodeToString(input) {
+      try {
+        let b64 = input.replace(/-/g, '+').replace(/_/g, '/');
+        const pad = b64.length % 4;
+        if (pad === 2) b64 += '==';
+        else if (pad === 3) b64 += '=';
+        else if (pad === 1) b64 += '===';
+        const binary = atob(b64);
+        // UTF-8 対応デコード
+        return decodeURIComponent(Array.prototype.map.call(binary, c =>
+          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join(''));
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // JWT の payload をデコードしてオブジェクトを返す（失敗時は null）
+    function decodeJwtPayload(jwt) {
+      if (!jwt) return null;
+      const parts = jwt.split('.');
+      if (parts.length < 2) return null;
+      const payload = parts[1];
+      const decoded = base64UrlDecodeToString(payload);
+      if (!decoded) return null;
+      try {
+        return JSON.parse(decoded);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // オブジェクトを整形して文字列にする（key: "value" の順で改行）
+    function formatJson(obj) {
+      try {
+        return JSON.stringify(obj, null, 2);
+      } catch (e) {
+        return String(obj);
+      }
+    }
+
     function render() {
       const query = window.location.search || '';
       const params = parseQuery(query);
@@ -196,7 +238,32 @@
           body: data.toString()
         });
         const text = await resp.text();
-        respBox.textContent = 'HTTP ' + resp.status + '\n\n' + text;
+        // まず HTTP ステータスを表示
+        let out = 'HTTP ' + resp.status + '\n\n';
+
+        // JSON として解析できれば整形して表示
+        let parsed = null;
+        try {
+          parsed = JSON.parse(text);
+        } catch (e) {
+          parsed = null;
+        }
+
+        if (parsed) {
+          out += formatJson(parsed);
+
+          // access_token があれば JWT をデコードして表示
+          if (parsed.access_token) {
+            const decoded = decodeJwtPayload(parsed.access_token);
+            out += '\n\nDecoded access_token payload:\n';
+            out += decoded ? formatJson(decoded) : '(unable to decode JWT payload)';
+          }
+        } else {
+          // JSON でなければ生のレスポンスを表示
+          out += text;
+        }
+
+        respBox.textContent = out;
       } catch (e) {
         respBox.textContent = '送信失敗: ' + e.toString();
       }
