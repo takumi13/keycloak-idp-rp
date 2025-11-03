@@ -61,22 +61,19 @@
       <input type="text" id="client_id" name="client_id" value="semi_client">
     </label>
 
-    <label>client_secret（必要な場合のみ）
+    <label>client_secret
       <input type="text" id="client_secret" name="client_secret" value="Gx6Yh6Q9mVWyPeg9GDIKgKzTiN8WU5Cf">
     </label>
 
     <!-- PKCE: フロントで code_verifier を保持している場合に備え input を追加 -->
-    <label>code_verifier（PKCE をフロントで扱う場合のみ入力。サーバ側でセッションに保存しているなら空のままで可）
+    <label>code_verifier（サーバ側でセッションに保存しているため空のままでもPKCE利用可）
       <input type="text" id="code_verifier" name="code_verifier" placeholder="（例: ランダムな verifier）">
-      <small class="hint">可能なら authorization フロー時に localStorage/sessionStorage に保存した code_verifier をここから自動復元します。</small>
     </label>
 
     <div class="form-actions">
       <button type="button" class="btn" id="sendBtn">トークン要求送信</button>
       <label style="margin-left:12px;"><input type="checkbox" id="autoSend"> 読み込み時に自動送信</label>
     </div>
-
-    <p class="hint">注: PKCE をサーバ側で扱う実装（本アプリの既定）では、フロントは code_verifier を送る必要はありません。フロントで PKCE を扱う場合はここで入力／localStorage から復元して送信してください。</p>
   </form>
 
   <h2>レスポンス</h2>
@@ -154,7 +151,7 @@
       container.innerHTML = '';
 
       const raw = document.createElement('div');
-      raw.innerHTML = '<strong>Raw query string</strong>';
+      raw.innerHTML = '<strong>Authorization Response</strong>';
       const pre = document.createElement('pre');
       pre.textContent = query || '(none)';
       raw.appendChild(pre);
