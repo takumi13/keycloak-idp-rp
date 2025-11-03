@@ -15,11 +15,15 @@
     .btn.secondary{background:#666}
     .hint{color:#666;font-size:0.9rem;margin-top:8px}
     pre{background:#f8f8f8;padding:8px;border-radius:4px;overflow:auto}
+    form.token-form{margin-top:16px;border:1px solid #e0e0e0;padding:12px;border-radius:6px;background:#fafafa}
+    form.token-form label{display:block;margin-top:8px;font-size:0.9rem}
+    form.token-form input[type="text"], form.token-form input[type="url"]{width:100%;padding:6px;box-sizing:border-box}
+    .form-actions{margin-top:10px}
   </style>
 </head>
 <body>
   <h1>Authorization Callback</h1>
-  <p class="hint">このページは認可応答 (クエリパラメータ) を表示します。</p>
+  <p class="hint">このページは認可応答 (クエリパラメータ) を表示します。下のフォームで token エンドポイントへリクエストを送信できます。</p>
 
   <div id="result">
     <p>読み込み中…</p>
@@ -32,6 +36,51 @@
        Logout
     </a>
   </div>
+
+  <!-- Token request form -->
+  <form id="tokenForm" class="token-form" onsubmit="return false;">
+    <strong>Token request</strong>
+    <label>token_endpoint（省略可。サーバのデフォルトが使用されます）
+      <input type="url" id="token_endpoint" name="token_endpoint" 
+      placeholder="(省略可) http://localhost:8080/realms/myrealm/protocol/openid-connect/auth/token">
+    </label>
+
+    <label>code
+      <input type="text" id="code" name="code" required>
+    </label>
+
+    <label>state
+      <input type="text" id="state" name="state">
+    </label>
+
+    <label>redirect_uri
+      <input type="url" id="redirect_uri" name="redirect_uri" value="http://localhost:8081/callback">
+    </label>
+
+    <label>client_id
+      <input type="text" id="client_id" name="client_id" value="semi_client">
+    </label>
+
+    <label>client_secret（必要な場合のみ）
+      <input type="text" id="client_secret" name="client_secret" value="Gx6Yh6Q9mVWyPeg9GDIKgKzTiN8WU5Cf">
+    </label>
+
+    <!-- PKCE: フロントで code_verifier を保持している場合に備え input を追加 -->
+    <label>code_verifier（PKCE をフロントで扱う場合のみ入力。サーバ側でセッションに保存しているなら空のままで可）
+      <input type="text" id="code_verifier" name="code_verifier" placeholder="（例: ランダムな verifier）">
+      <small class="hint">可能なら authorization フロー時に localStorage/sessionStorage に保存した code_verifier をここから自動復元します。</small>
+    </label>
+
+    <div class="form-actions">
+      <button type="button" class="btn" id="sendBtn">トークン要求送信</button>
+      <label style="margin-left:12px;"><input type="checkbox" id="autoSend"> 読み込み時に自動送信</label>
+    </div>
+
+    <p class="hint">注: PKCE をサーバ側で扱う実装（本アプリの既定）では、フロントは code_verifier を送る必要はありません。フロントで PKCE を扱う場合はここで入力／localStorage から復元して送信してください。</p>
+  </form>
+
+  <h2>レスポンス</h2>
+  <pre id="responseBox">未送信</pre>
 
   <script>
     function parseQuery(qs) {
@@ -47,13 +96,21 @@
       return obj;
     }
 
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     function render() {
       const query = window.location.search || '';
       const params = parseQuery(query);
       const container = document.getElementById('result');
       container.innerHTML = '';
 
-      const info = document.createElement('div');
       const raw = document.createElement('div');
       raw.innerHTML = '<strong>Raw query string</strong>';
       const pre = document.createElement('pre');
@@ -66,46 +123,97 @@
         const p = document.createElement('p');
         p.textContent = 'クエリパラメータが見つかりません。';
         container.appendChild(p);
-        return;
+      } else {
+        const tbl = document.createElement('table');
+        const thead = document.createElement('thead');
+        thead.innerHTML = '<tr><th>Parameter</th><th>Value</th></tr>';
+        tbl.appendChild(thead);
+        const tbody = document.createElement('tbody');
+
+        keys.forEach(k => {
+          const v = params[k];
+          const tr = document.createElement('tr');
+          const tdKey = document.createElement('td');
+          tdKey.textContent = k;
+          const tdVal = document.createElement('td');
+          if (Array.isArray(v)) {
+            tdVal.innerHTML = v.map(x => '<div>' + escapeHtml(x) + '</div>').join('');
+          } else {
+            tdVal.textContent = v;
+          }
+          tr.appendChild(tdKey);
+          tr.appendChild(tdVal);
+          tbody.appendChild(tr);
+        });
+
+        tbl.appendChild(tbody);
+        container.appendChild(tbl);
       }
 
-      const tbl = document.createElement('table');
-      const thead = document.createElement('thead');
-      thead.innerHTML = '<tr><th>Parameter</th><th>Value</th></tr>';
-      tbl.appendChild(thead);
-      const tbody = document.createElement('tbody');
+      // 自動でフォームに値を設定
+      const codeInput = document.getElementById('code');
+      const stateInput = document.getElementById('state');
+      const redirectInput = document.getElementById('redirect_uri');
+      const verifierInput = document.getElementById('code_verifier');
 
-      keys.forEach(k => {
-        const v = params[k];
-        const tr = document.createElement('tr');
-        const tdKey = document.createElement('td');
-        tdKey.textContent = k;
-        const tdVal = document.createElement('td');
-        if (Array.isArray(v)) {
-          tdVal.innerHTML = v.map(x => '<div>' + escapeHtml(x) + '</div>').join('');
-        } else {
-          tdVal.textContent = v;
+      if (params.code) codeInput.value = params.code;
+      if (params.state) stateInput.value = params.state;
+      if (params.redirect_uri) redirectInput.value = params.redirect_uri;
+
+      // PKCE: フロント側で code_verifier を保存している場合は復元して表示
+      // まず URL クエリに code_verifier があれば優先、なければ localStorage/sessionStorage を参照
+      if (params.code_verifier) {
+        verifierInput.value = params.code_verifier;
+      } else {
+        try {
+          const fromLocal = localStorage.getItem('code_verifier') || sessionStorage.getItem('code_verifier');
+          if (fromLocal) verifierInput.value = fromLocal;
+        } catch (e) {
+          // storage access denied 等は無視
         }
-        tr.appendChild(tdKey);
-        tr.appendChild(tdVal);
-        tbody.appendChild(tr);
+      }
+    }
+
+    async function sendTokenRequest() {
+      const data = new URLSearchParams();
+      const fields = ['token_endpoint','code','redirect_uri','client_id','client_secret','state','code_verifier'];
+      fields.forEach(f => {
+        const el = document.getElementById(f);
+        if (!el) return;
+        const v = el.value;
+        if (v) data.append(f, v);
       });
+      // grant_type はデフォルトで authorization_code（サーバ側でも default）
+      data.append('grant_type', 'authorization_code');
 
-      tbl.appendChild(tbody);
-      container.appendChild(tbl);
+      const respBox = document.getElementById('responseBox');
+      respBox.textContent = '送信中...';
+
+      try {
+        const resp = await fetch('/token_request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: data.toString()
+        });
+        const text = await resp.text();
+        respBox.textContent = 'HTTP ' + resp.status + '\n\n' + text;
+      } catch (e) {
+        respBox.textContent = '送信失敗: ' + e.toString();
+      }
     }
 
-    function escapeHtml(s) {
-      return String(s)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
-    // 初期レンダリング
-    render();
+    // 初期レンダリングとイベント登録
+    (function(){
+      render();
+      document.getElementById('sendBtn').addEventListener('click', sendTokenRequest);
+      // 自動送信がチェックされていればページ読み込み時に送信
+      window.addEventListener('load', function(){
+        if (document.getElementById('autoSend').checked) {
+          const codeVal = document.getElementById('code').value;
+          if (codeVal) sendTokenRequest();
+        }
+      });
+    })();
   </script>
 </body>
 </html>

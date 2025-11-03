@@ -22,6 +22,12 @@ public class SecurityConfig {
     @Value("${app.path.callback:/callback}")
     private String callbackPath;
 
+    @Value("${app.path.token-request:/token_request}")
+    private String tokenRequestPath;
+
+    @Value("${app.path.token:/token}")
+    private String tokenPath;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         // ここで許可するパスをプロパティから組み立て
@@ -30,6 +36,8 @@ public class SecurityConfig {
                 authorizationFlowPath,
                 authorizePath,
                 callbackPath,
+                tokenRequestPath,
+                tokenPath,
                 "/css/**",
                 "/js/**",
                 "/favicon.ico"

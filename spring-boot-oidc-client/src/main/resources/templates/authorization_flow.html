@@ -1,13 +1,13 @@
 <!doctype html>
-<html lang="ja">
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Authorization Request Builder</title>
+  <title>Authorization Flow</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; max-width: 900px; }
     label { display:block; margin-top:12px; font-weight:600; }
-    input[type="text"], textarea { width:100%; padding:8px; box-sizing:border-box; }
+    input[type="text"], input[type="url"], textarea { width:100%; padding:8px; box-sizing:border-box; }
     .row { display:flex; gap:12px; }
     .col { flex:1; }
     .actions { margin-top:16px; }
@@ -15,11 +15,12 @@
   </style>
 </head>
 <body>
-  <h1>Authorization Request Builder</h1>
-  <p class="hint">各パラメータを編集して「Submit」でサーバへPOSTします。<br>
-     「Preview URL」でクライアント側で組み立てた認可エンドポイントへブラウザを開き確認できます。</p>
+  <h1>Authorization Flow</h1>
 
-  <form method="post" action="/authorize">
+  <!-- Thymeleaf が設定した値を data- 属性で保持 -->
+  <div id="initial" th:attr="data-code_verifier=${code_verifier},data-state=${state},data-nonce=${nonce},data-code_challenge=${code_challenge},data-code_challenge_method=${code_challenge_method}"></div>
+
+  <form id="authForm" method="post" th:action="@{/authorize}">
     <label>authorization_endpoint
       <input type="text" name="authorization_endpoint" id="authorization_endpoint"
              value="http://localhost:8080/realms/myrealm/protocol/openid-connect/auth" />
@@ -42,79 +43,55 @@
       <input type="text" name="redirect_uri" id="redirect_uri" value="http://localhost:8081/callback" />
     </label>
 
-    <label>scope
-      <input type="text" name="scope" id="scope" value="openid profile" />
+    <label>state
+      <!-- フロント表示用に state をセット（フォームにも送る） -->
+      <input type="text" id="state" name="state">
     </label>
 
-    <div class="row">
-      <div class="col">
-        <label>state
-          <input type="text" name="state" id="state" value="xyz" />
-        </label>
-      </div>
-      <div class="col">
-        <label>nonce
-          <input type="text" name="nonce" id="nonce" value="" placeholder="任意" />
-        </label>
-      </div>
-    </div>
-
-    <!-- PKCE: code_verifier を追加 -->
-    <label>code_verifier (PKCE, サーバで code_challenge を生成)
-      <input type="text" name="code_verifier" id="code_verifier" value="hogefuga" />
-      <div class="hint">空欄の場合は PKCE を使用しません。code_verifier は英数字等を指定してください。</div>
+    <label>nonce
+      <input type="text" id="nonce" name="nonce">
     </label>
 
-    <label>additional_params (key=value の改行区切り)
-      <textarea name="additional_params" id="additional_params" rows="4"
-                placeholder="prompt=consent&#10;response_mode=form_post"></textarea>
+    <label>code_challenge
+      <!-- code_challenge はサーバへ送信する -->
+      <input type="text" id="code_challenge" name="code_challenge">
     </label>
 
-    <div class="actions">
-      <button type="button" id="previewBtn">Preview URL</button>
-      <button type="submit">Submit (POST /authorize)</button>
+    <label>code_challenge_method
+      <input type="text" id="code_challenge_method" name="code_challenge_method" value="S256">
+    </label>
+
+    <label>code_verifier（表示のみ。サーバへは送信しません）
+      <!-- disabled にして送信されないようにする -->
+      <input type="text" id="code_verifier" name="display_code_verifier" disabled>
+    </label>
+
+    <div>
+      <button type="submit">Authorize</button>
     </div>
   </form>
 
   <script>
-    function encode(s){ return encodeURIComponent(s==null?"":s); }
+    // Thymeleaf で埋めた data- 属性から初期値を設定する
+    (function(){
+      const initial = document.getElementById('initial');
+      if (!initial) return;
+      const codeVerifier = initial.dataset.code_verifier || '';
+      const state = initial.dataset.state || '';
+      const nonce = initial.dataset.nonce || '';
+      const codeChallenge = initial.dataset.code_challenge || '';
+      const codeChallengeMethod = initial.dataset.code_challenge_method || 'S256';
 
-    function buildUrl() {
-      const endpoint = document.getElementById('authorization_endpoint').value.trim();
-      const params = new URLSearchParams();
-      const add = (k,v)=>{ if(v!==null && v!==undefined && String(v)!=='') params.append(k,v); };
+      // set inputs
+      document.getElementById('code_verifier').value = codeVerifier;
+      document.getElementById('state').value = state;
+      document.getElementById('nonce').value = nonce;
+      document.getElementById('code_challenge').value = codeChallenge;
+      document.getElementById('code_challenge_method').value = codeChallengeMethod;
 
-      add('response_type', document.getElementById('response_type').value.trim());
-      add('client_id', document.getElementById('client_id').value.trim());
-      add('redirect_uri', document.getElementById('redirect_uri').value.trim());
-      add('scope', document.getElementById('scope').value.trim());
-      add('state', document.getElementById('state').value.trim());
-      const nonce = document.getElementById('nonce').value.trim();
-      if(nonce) add('nonce', nonce);
-
-      // Preview はクライアント側で code_verifier -> code_challenge を生成しないため
-      // code_verifier は表示しない。サーバへPOSTするとサーバが code_challenge を生成します。
-
-      const extra = document.getElementById('additional_params').value.trim();
-      if(extra){
-        extra.split(/\r?\n/).forEach(line => {
-          const idx = line.indexOf('=');
-          if(idx>0){
-            const k = line.substring(0,idx).trim();
-            const v = line.substring(idx+1).trim();
-            if(k) add(k,v);
-          }
-        });
-      }
-
-      const sep = endpoint.includes('?') ? '&' : '?';
-      return endpoint + sep + params.toString();
-    }
-
-    document.getElementById('previewBtn').addEventListener('click', function(){
-      const url = buildUrl();
-      window.open(url, '_blank');
-    });
+      // Authorization request: PKCE に従い code_verifier を送らず code_challenge と method を送る（フォームは既に構成済み）
+      // 追加: ここで必要なら authorization_endpoint, client_id, redirect_uri を初期化する（Thymeleaf経由で埋められる場合は省略可）
+    })();
   </script>
 </body>
 </html>

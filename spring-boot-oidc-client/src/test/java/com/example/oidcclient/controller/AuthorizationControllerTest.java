@@ -93,7 +93,9 @@ public class AuthorizationControllerTest {
         String redirectUri = "http://localhost:8081/callback";
         String scope = "openid profile";
         String state = "xyz";
-        String codeVerifier = "hogefuga";
+        String codeVerifier = "TKwV36z4a0lK9fIupr2yThIjvy7y1nGDE6VQ6ikM2nU";
+        // クライアント側で生成する code_challenge をテスト側でも算出して送信する
+        String codeChallenge = AuthorizationController.generateS256CodeChallenge(codeVerifier);
 
         MvcResult result = mockMvc.perform(post(authorizePath)
                         .param("authorization_endpoint", endpoint)
@@ -102,30 +104,20 @@ public class AuthorizationControllerTest {
                         .param("redirect_uri", redirectUri)
                         .param("scope", scope)
                         .param("state", state)
-                        .param("code_verifier", codeVerifier))
+                        .param("code_challenge", codeChallenge)
+                        .param("code_challenge_method", "S256"))
                 .andExpect(status().is3xxRedirection())
                 .andReturn();
 
-        String location = result.getResponse().getHeader("Location");
-        assertThat(location).isNotNull();
-        assertThat(location).startsWith(endpoint);
-
-        // 基本パラメータ
-        assertThat(location).contains("response_type=" + responseType);
-        assertThat(location).contains("client_id=" + clientId);
-        assertThat(location).contains("scope=" + URLEncoder.encode(scope, StandardCharsets.UTF_8));
-        assertThat(location).contains("state=" + state);
-        assertThat(location).contains("redirect_uri=" + URLEncoder.encode(redirectUri, StandardCharsets.UTF_8));
-
-        // PKCE: code_challenge と method を検証
-        String expectedChallenge = computeS256CodeChallenge(codeVerifier);
-        assertThat(location).contains("code_challenge=" + expectedChallenge);
-        assertThat(location).contains("code_challenge_method=S256");
-    }
-
-    private static String computeS256CodeChallenge(String verifier) throws Exception {
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-        byte[] digest = md.digest(verifier.getBytes(StandardCharsets.US_ASCII));
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+        String redirectUrl = result.getResponse().getRedirectedUrl();
+        // 基本パラメータの存在を検証
+        org.assertj.core.api.Assertions.assertThat(redirectUrl).contains("response_type=code");
+        org.assertj.core.api.Assertions.assertThat(redirectUrl).contains("client_id=" + clientId);
+        org.assertj.core.api.Assertions.assertThat(redirectUrl).contains("redirect_uri=" + URLEncoder.encode(redirectUri, StandardCharsets.UTF_8));
+        org.assertj.core.api.Assertions.assertThat(redirectUrl).contains("scope=" + URLEncoder.encode(scope, StandardCharsets.UTF_8));
+        org.assertj.core.api.Assertions.assertThat(redirectUrl).contains("state=" + state);
+        // PKCE 関連のパラメータを検証
+        org.assertj.core.api.Assertions.assertThat(redirectUrl).contains("code_challenge=" + codeChallenge);
+        org.assertj.core.api.Assertions.assertThat(redirectUrl).contains("code_challenge_method=S256");
     }
 }
