@@ -25,7 +25,7 @@ public class AuthorizationControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @Value("${keycloak.host:http://localhost:8080}")
+    @Value("${keycloak.host:https://localhost:8443}")
     private String keycloakHost;
 
     @Value("${keycloak.context-path:/realms/myrealm/protocol/openid-connect}")
@@ -56,10 +56,10 @@ public class AuthorizationControllerTest {
 
     @Test
     public void postAuthorize_buildsAuthUrlAndRedirects() throws Exception {
-        String endpoint = "http://localhost:8080/realms/myrealm/protocol/openid-connect/auth";
+        String endpoint = "https://localhost:8443/realms/myrealm/protocol/openid-connect/auth";
         String responseType = "code";
         String clientId = "semi_client";
-        String redirectUri = "http://localhost:8081/callback";
+        String redirectUri = "https://localhost:8081/callback";
         String scope = "openid profile";
         String state = "xyz";
 
@@ -90,7 +90,7 @@ public class AuthorizationControllerTest {
         String endpoint = buildAuthEndpoint();
         String responseType = "code";
         String clientId = "semi_client";
-        String redirectUri = "http://localhost:8081/callback";
+        String redirectUri = "https://localhost:8081/callback";
         String scope = "openid profile";
         String state = "xyz";
         String codeVerifier = "TKwV36z4a0lK9fIupr2yThIjvy7y1nGDE6VQ6ikM2nU";

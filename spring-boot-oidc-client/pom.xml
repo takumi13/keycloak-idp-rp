@@ -20,6 +20,7 @@
     <!-- プロジェクトが使う Spring Boot のバージョンをここに合わせる -->
     <spring-boot.version>3.1.6</spring-boot.version>
     <java.version>21</java.version>
+    <truststore.password>changeit</truststore.password>
   </properties>
 
   <dependencies>
@@ -70,6 +71,21 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
         <!-- version 指定は不要（parent が管理） -->
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.4</version>
+        <configuration>
+          <argLine>${surefire.argLine} -Djavax.net.ssl.trustStore=${project.basedir}/ssl/keycloak-truststore.p12 -Djavax.net.ssl.trustStorePassword=${truststore.password} -Djavax.net.ssl.trustStoreType=PKCS12</argLine>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <configuration>
+          <argLine>-Djavax.net.ssl.trustStore=${project.basedir}/src/main/resources/ssl/keycloak-truststore.p12 -Djavax.net.ssl.trustStorePassword=changeit</argLine>
+        </configuration>
       </plugin>
     </plugins>
   </build>

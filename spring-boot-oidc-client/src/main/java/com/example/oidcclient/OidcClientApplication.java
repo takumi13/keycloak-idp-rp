@@ -2,13 +2,10 @@ package com.example.oidcclient;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.ApplicationContext;
 
 import java.io.UnsupportedEncodingException;
-import java.net.URI;
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -21,47 +18,43 @@ public class OidcClientApplication {
 
     private static final Logger logger = LoggerFactory.getLogger(OidcClientApplication.class);
 
-    public static void main(String[] args) throws Exception {
-        SpringApplication.run(OidcClientApplication.class, args);
+    /**
+     * Spring の ApplicationContext を static に保持して、
+     * static メソッドから TokenClientService を呼べるようにする。
+     */
+    private static ApplicationContext applicationContext;
 
+    public OidcClientApplication(ApplicationContext context) {
+        // Spring Boot 起動時にコンテキストが渡される
+        OidcClientApplication.applicationContext = context;
+    }
+
+    public static void main(String[] args) {
+        SpringApplication.run(OidcClientApplication.class, args);
     }
 
     /**
      * Authorization Request URI を構築するユーティリティ。
-     * authorizationEndpoint には Keycloak の /protocol/openid-connect/auth を指定してください。
-     * パラメータは OIDC 3.1.2.1 に準拠したキーを渡してください（例: response_type, client_id, redirect_uri, scope, state, nonce）。
      */
     public static String buildAuthorizationRequestUri(String authorizationEndpoint, Map<String, String> params) {
         String query = params.entrySet().stream()
                 .map(e -> urlEncode(e.getKey()) + "=" + urlEncode(e.getValue()))
                 .collect(Collectors.joining("&"));
-        return authorizationEndpoint + (authorizationEndpoint.contains("?") ? "&" : "?") + query;
+        String result = authorizationEndpoint + (authorizationEndpoint.contains("?") ? "&" : "?") + query;
+        logger.debug("buildAuthorizationRequestUri: {}", result);
+        return result;
     }
 
     /**
-     * token エンドポイントに対する application/x-www-form-urlencoded POST を行い、レスポンス文字列を返す。
-     * tokenEndpoint に "http://localhost:8080/realms/myrealm/protocol/openid-connect/token" を指定してください。
-     * 例の formParams: grant_type=authorization_code, code, redirect_uri, client_id, client_secret
+     * ★ Token エンドポイントに対する mTLS 付きリクエストを行う static メソッド。
+     * 実際の処理は TokenClientService に委譲し、証明書情報は application.properties から取得する。
      */
     public static String requestToken(String tokenEndpoint, Map<String, String> formParams) throws Exception {
-        String form = formParams.entrySet().stream()
-                .map(e -> urlEncode(e.getKey()) + "=" + urlEncode(e.getValue()))
-                .collect(Collectors.joining("&"));
-
-        logger.debug("Requesting token from: " + tokenEndpoint);
-        formParams.forEach((k, v) -> logger.debug("Param: " + k + " = " + v));
-
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(tokenEndpoint))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(form))
-                .build();
-
-        HttpClient client = HttpClient.newHttpClient();
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-
-        // ここでは単純にレスポンスボディを返す。必要であればステータスやヘッダも返すように変更してください。
-        return response.body();
+        if (applicationContext == null) {
+            throw new IllegalStateException("ApplicationContext is not initialized yet.");
+        }
+        TokenClientService service = applicationContext.getBean(TokenClientService.class);
+        return service.requestToken(tokenEndpoint, formParams);
     }
 
     private static String urlEncode(String s) {
@@ -72,6 +65,4 @@ public class OidcClientApplication {
             throw new RuntimeException(e);
         }
     }
-
-    // ...existing code...
 }

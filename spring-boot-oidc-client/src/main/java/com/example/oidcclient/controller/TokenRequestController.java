@@ -1,6 +1,6 @@
 package com.example.oidcclient.controller;
 
-import com.example.oidcclient.OidcClientApplication;
+import com.example.oidcclient.TokenClientService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -18,11 +18,18 @@ public class TokenRequestController {
 
     private static final Logger logger = LoggerFactory.getLogger(TokenRequestController.class);
 
-    @Value("${keycloak.host:http://localhost:8080}")
+    @Value("${keycloak.host:https://localhost:8443}")
     private String keycloakHost;
 
     @Value("${keycloak.context-path:/realms/myrealm/protocol/openid-connect}")
     private String keycloakContextPath;
+
+    private final TokenClientService tokenClientService;
+
+    // コンストラクタインジェクション
+    public TokenRequestController(TokenClientService tokenClientService) {
+        this.tokenClientService = tokenClientService;
+    }
 
     /**
      * token request を行うエンドポイント。
@@ -45,23 +52,18 @@ public class TokenRequestController {
         String codeVerifier = null;
         String sessionKey = null;
 
-        // PKCE: セッションから取り出したcode_challenge_methodがnullでなければ、
-        // セッションから code_verifier を取得
         if (session.getAttribute("code_challenge_method") != null) {
-            // リクエストパラメータの code_verifier を優先、なければセッションから取得（state に紐付け）
             codeVerifier = (codeVerifierParam != null && !codeVerifierParam.isBlank()) ? codeVerifierParam : null;
             sessionKey = (state != null && !state.isBlank()) ? "code_verifier:" + state : "code_verifier";
             if (codeVerifier == null) {
                 Object cvObj = session.getAttribute(sessionKey);
                 if (cvObj != null) {
                     codeVerifier = cvObj.toString();
-                    // セッションから取得した場合はワンタイムにする
                     session.removeAttribute(sessionKey);
                 }
             }
-            logger.debug("code_verifier: " + codeVerifier);
+            logger.debug("code_verifier: {}", codeVerifier);
         }
-
 
         Map<String, String> form = new LinkedHashMap<>();
         if (grantType != null && !grantType.isBlank()) form.put("grant_type", grantType);
@@ -69,11 +71,10 @@ public class TokenRequestController {
         if (redirectUri != null && !redirectUri.isBlank()) form.put("redirect_uri", redirectUri);
         if (clientId != null && !clientId.isBlank()) form.put("client_id", clientId);
         if (clientSecret != null && !clientSecret.isBlank()) form.put("client_secret", clientSecret);
-        // PKCE: セッションまたはリクエストから取り出した code_verifier を送る
         if (codeVerifier != null && !codeVerifier.isBlank()) form.put("code_verifier", codeVerifier);
 
-        // OidcClientApplication のユーティリティで token エンドポイントに POST
-        return OidcClientApplication.requestToken(endpoint, form);
+        // ★ mTLS 付きで token エンドポイントに POST
+        return tokenClientService.requestToken(endpoint, form);
     }
 
     private String buildDefaultTokenEndpoint() {

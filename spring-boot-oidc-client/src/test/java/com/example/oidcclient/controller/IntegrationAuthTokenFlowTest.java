@@ -59,7 +59,7 @@ public class IntegrationAuthTokenFlowTest {
             String codeVerifier = "sample-verifier-abc";
             // クライアントが送る code_challenge（AuthorizationController の実装と同じ生成法を利用）
             String codeChallenge = AuthorizationController.generateS256CodeChallenge(codeVerifier);
-            String authorizationEndpoint = "http://localhost:8080/realms/myrealm/protocol/openid-connect/auth";
+            String authorizationEndpoint = "https://localhost:8443/realms/myrealm/protocol/openid-connect/auth";
 
             // 1) authorize をクライアントとして送る（ここでは client が code_challenge を送る）
             MvcResult authResult = mockMvc.perform(post("/authorize")
@@ -68,7 +68,7 @@ public class IntegrationAuthTokenFlowTest {
                             .param("authorization_endpoint", authorizationEndpoint)
                             .param("response_type", "code")
                             .param("client_id", "semi_client")
-                            .param("redirect_uri", "http://localhost:8081/callback")
+                            .param("redirect_uri", "https://localhost:8081/callback")
                             .param("state", state)
                             .param("code_challenge", codeChallenge)
                             .param("code_challenge_method", "S256")
@@ -258,7 +258,7 @@ public class IntegrationAuthTokenFlowTest {
                              .param("code", authCodeFromAuthServer)
                              .param("state", state)
                              .param("client_id", "semi_client")
-                             .param("redirect_uri", "http://localhost:8081/callback")
+                             .param("redirect_uri", "https://localhost:8081/callback")
                              .param("code_verifier", codeVerifier)
                       )
                      .andExpect(status().isOk())

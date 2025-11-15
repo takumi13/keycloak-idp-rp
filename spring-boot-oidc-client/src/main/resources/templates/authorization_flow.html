@@ -23,11 +23,11 @@
   <form id="authForm" method="post" th:action="@{/authorize}">
     <label>authorization_endpoint
       <input type="text" name="authorization_endpoint" id="authorization_endpoint"
-             value="http://localhost:8080/realms/myrealm/protocol/openid-connect/auth" />
+             value="https://localhost:8443/realms/myrealm/protocol/openid-connect/auth" />
     </label>
 
     <div class="row">
-      <div class="col">
+      <div class="col">d
         <label>response_type
           <input type="text" name="response_type" id="response_type" value="code" />
         </label>
@@ -40,7 +40,7 @@
     </div>
 
     <label>redirect_uri
-      <input type="text" name="redirect_uri" id="redirect_uri" value="http://localhost:8081/callback" />
+      <input type="text" name="redirect_uri" id="redirect_uri" value="https://localhost:8081/callback" />
     </label>
 
     <label>state
