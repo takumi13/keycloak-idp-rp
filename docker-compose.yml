@@ -32,6 +32,7 @@ services:
       KC_DB_URL_DATABASE: ${KC_DB_URL_DATABASE}
       KC_DB_USERNAME: ${KC_DB_USERNAME}
       KC_DB_PASSWORD: ${KC_DB_PASSWORD}
+
       # ------------------------------------------------
       # Quarkus / Keycloak ログレベルを DEBUG に設定
       # ------------------------------------------------
@@ -42,8 +43,31 @@ services:
       QUARKUS_HTTP_ACCESS_LOG_BASE_FILE_NAME: "access"
       QUARKUS_HTTP_RECORD_REQUEST_START_TIME: true
       QUARKUS_HTTP_ACCESS_LOG_PATTERN: "%h %l %u %t \"%r\" %s %b \"%{i,Referer}\" \"%{i,User-Agent}\" %D"
+
+      # ------------------------------------------------
+      # HTTPS / mTLS設定（サーバ証明書 + truststore）
+      # ------------------------------------------------
+      # サーバ証明書（PEM）
+      KC_HTTPS_CERTIFICATE_FILE: "/opt/keycloak/conf/tls.crt"
+      KC_HTTPS_CERTIFICATE_KEY_FILE: "/opt/keycloak/conf/tls.key"
+
+      # クライアント側のtruststore
+      KC_HTTPS_TRUST_STORE_FILE: "/opt/keycloak/conf/truststore.p12"
+      KC_HTTPS_TRUST_STORE_PASSWORD: "changeit"
+      KC_HTTPS_TRUST_STORE_TYPE: "PKCS12"
+
+      # クライアント証明書要求モード（必須にしたければ "required"）
+      KC_HTTPS_CLIENT_AUTH: "request"
     ports:
       - "8080:8080"
+      - "8443:8443"
+    volumes:
+      # KeycloakのHTTPSサーバ証明書
+      - ./certs/keycloak-https-server.crt:/opt/keycloak/conf/tls.crt:ro
+      - ./certs/keycloak-https-server.key:/opt/keycloak/conf/tls.key:ro
+
+      # oidc-clientを検証するためのtruststoreをマウント
+      - ./ssl/truststore.p12:/opt/keycloak/conf/truststore.p12:ro
     depends_on:
       mysql:
         condition: service_healthy
