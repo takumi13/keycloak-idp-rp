@@ -20,7 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
-public class AuthorizationControllerTest {
+public class AuthorizationFlowControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -50,7 +50,7 @@ public class AuthorizationControllerTest {
 
     @Test
     public void showForm_returnsOk() throws Exception {
-        mockMvc.perform(get(authorizationFlowPath))
+        mockMvc.perform(get("/authorization-flow"))
                 .andExpect(status().isOk());
     }
 
@@ -95,7 +95,7 @@ public class AuthorizationControllerTest {
         String state = "xyz";
         String codeVerifier = "TKwV36z4a0lK9fIupr2yThIjvy7y1nGDE6VQ6ikM2nU";
         // クライアント側で生成する code_challenge をテスト側でも算出して送信する
-        String codeChallenge = AuthorizationController.generateS256CodeChallenge(codeVerifier);
+        String codeChallenge = AuthorizationFlowController.generateS256CodeChallenge(codeVerifier);
 
         MvcResult result = mockMvc.perform(post(authorizePath)
                         .param("authorization_endpoint", endpoint)

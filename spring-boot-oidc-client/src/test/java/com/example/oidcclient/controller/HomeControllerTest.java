@@ -15,7 +15,7 @@ import static org.hamcrest.Matchers.containsString;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
-public class HelloControllerTest {
+public class HomeControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -29,5 +29,13 @@ public class HelloControllerTest {
         mockMvc.perform(get(rootPath))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Hello World")));
+    }
+
+    @Test
+    public void testHome() throws Exception {
+        mockMvc.perform(get("/home"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("home"))
+                .andExpect(model().attributeExists("message"));
     }
 }

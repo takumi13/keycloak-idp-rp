@@ -14,9 +14,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @RestController
-public class TokenRequestController {
+public class TokenController {
 
-    private static final Logger logger = LoggerFactory.getLogger(TokenRequestController.class);
+    private static final Logger logger = LoggerFactory.getLogger(TokenController.class);
 
     @Value("${keycloak.host:https://localhost:8443}")
     private String keycloakHost;
@@ -27,7 +27,7 @@ public class TokenRequestController {
     private final TokenClientService tokenClientService;
 
     // コンストラクタインジェクション
-    public TokenRequestController(TokenClientService tokenClientService) {
+    public TokenController(TokenClientService tokenClientService) {
         this.tokenClientService = tokenClientService;
     }
 
@@ -35,7 +35,7 @@ public class TokenRequestController {
      * token request を行うエンドポイント。
      * セッションから PKCE の code_verifier を取り出して form に含める（存在する場合）。
      */
-    @PostMapping("${app.path.token-request:/token_request}")
+    @PostMapping("${app.path.token-request:/token-request}")
     public String requestToken(
             @RequestParam(name = "token_endpoint", required = false) String tokenEndpoint,
             @RequestParam(name = "code", required = false) String code,

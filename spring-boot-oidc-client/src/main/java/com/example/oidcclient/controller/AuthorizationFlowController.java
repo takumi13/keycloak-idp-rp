@@ -20,9 +20,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Controller
-public class AuthorizationController {
+public class AuthorizationFlowController {
 
-    private static final Logger logger = LoggerFactory.getLogger(AuthorizationController.class);
+    private static final Logger logger = LoggerFactory.getLogger(AuthorizationFlowController.class);
 
     // pkce code verifier size をプロパティから注入（デフォルト 64）
     @Value("${pkce.code-verifier.size:64}")
@@ -36,7 +36,7 @@ public class AuthorizationController {
     private String keycloakContextPath;
 
     // showForm: PKCE 値（code_verifier, state, nonce）を生成してセッション保存、Thymeleaf に渡す
-    @GetMapping("${app.path.authorization-flow:/authorization_flow}")
+    @GetMapping("${app.path.authorization-flow:/authorization-flow}")
     public String showForm(
             @RequestParam(name = "redirect_uri", required = false) String redirectUri,
             @RequestParam(name = "client_id", required = false) String clientId,

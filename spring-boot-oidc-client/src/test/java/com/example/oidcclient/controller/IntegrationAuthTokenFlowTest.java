@@ -58,7 +58,7 @@ public class IntegrationAuthTokenFlowTest {
             // クライアントが生成する code_verifier（テスト側で生成）
             String codeVerifier = "sample-verifier-abc";
             // クライアントが送る code_challenge（AuthorizationController の実装と同じ生成法を利用）
-            String codeChallenge = AuthorizationController.generateS256CodeChallenge(codeVerifier);
+            String codeChallenge = AuthorizationFlowController.generateS256CodeChallenge(codeVerifier);
             String authorizationEndpoint = "https://localhost:8443/realms/myrealm/protocol/openid-connect/auth";
 
             // 1) authorize をクライアントとして送る（ここでは client が code_challenge を送る）
