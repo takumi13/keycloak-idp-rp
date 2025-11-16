@@ -1,9 +1,9 @@
 package com.example.oidcclient.service;
 
 import com.example.oidcclient.TokenClientService;
+import com.example.oidcclient.config.properties.OidcClientProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.URLEncoder;
@@ -20,15 +20,11 @@ public class OidcClientService {
     private static final Logger logger = LoggerFactory.getLogger(OidcClientService.class);
 
     private final TokenClientService tokenClientService;
+    private final OidcClientProperties oidcClientProperties;
 
-    @Value("${keycloak.host:https://localhost:8443}")
-    private String keycloakHost;
-
-    @Value("${keycloak.context-path:/realms/myrealm/protocol/openid-connect}")
-    private String keycloakContextPath;
-
-    public OidcClientService(TokenClientService tokenClientService) {
+    public OidcClientService(TokenClientService tokenClientService, OidcClientProperties oidcClientProperties) {
         this.tokenClientService = tokenClientService;
+        this.oidcClientProperties = oidcClientProperties;
     }
 
     /**
@@ -66,8 +62,8 @@ public class OidcClientService {
     }
 
     private String buildEndpoint(String suffix) {
-        String host = keycloakHost == null ? "" : keycloakHost.trim();
-        String ctx = keycloakContextPath == null ? "" : keycloakContextPath.trim();
+        String host = oidcClientProperties.getHost() == null ? "" : oidcClientProperties.getHost().trim();
+        String ctx = oidcClientProperties.getContextPath() == null ? "" : oidcClientProperties.getContextPath().trim();
 
         if (host.endsWith("/")) {
             host = host.substring(0, host.length() - 1);

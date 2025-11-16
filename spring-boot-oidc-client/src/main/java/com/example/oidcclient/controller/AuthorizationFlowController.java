@@ -37,7 +37,7 @@ public class AuthorizationFlowController {
     }
 
     // showForm: PKCE 値（code_verifier, state, nonce）を生成してセッション保存、Thymeleaf に渡す
-    @GetMapping("${app.path.authorization-flow:/authorization-flow}")
+    @GetMapping("${application.path.authorization-flow:/authorization-flow}")
     public String showForm(
             @RequestParam(name = "redirect_uri", required = false) String redirectUri,
             @RequestParam(name = "client_id", required = false) String clientId,
@@ -75,7 +75,7 @@ public class AuthorizationFlowController {
         return "authorization_flow";
     }
 
-    @PostMapping("${app.path.authorize:/authorize}")
+    @PostMapping("${application.path.authorize:/authorize}")
     public RedirectView authorize(
             @RequestParam(name = "authorization_endpoint", required = false) String authorizationEndpoint,
             @RequestParam(name = "response_type", required = false) String responseType,

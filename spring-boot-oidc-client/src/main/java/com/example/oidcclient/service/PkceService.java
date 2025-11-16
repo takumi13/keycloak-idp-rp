@@ -1,8 +1,8 @@
 package com.example.oidcclient.service;
 
+import com.example.oidcclient.config.properties.PkceProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -23,12 +23,14 @@ public class PkceService {
     private static final int DEFAULT_SIZE = 64;
 
     private final SecureRandom secureRandom = new SecureRandom();
+    private final PkceProperties pkceProperties;
 
-    @Value("${pkce.code-verifier.size:64}")
-    private int configuredSize;
+    public PkceService(PkceProperties pkceProperties) {
+        this.pkceProperties = pkceProperties;
+    }
 
     public String generateVerifier() {
-        return generateVerifier(configuredSize);
+        return generateVerifier(pkceProperties.getCodeVerifierSize());
     }
 
     public String generateVerifier(int requestedSize) {

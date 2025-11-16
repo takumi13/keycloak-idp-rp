@@ -1,8 +1,8 @@
 package com.example.oidcclient;
 
+import com.example.oidcclient.config.properties.MtlsProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -25,24 +25,11 @@ public class TokenClientService {
 
     private static final Logger logger = LoggerFactory.getLogger(TokenClientService.class);
 
-    // --- Keycloak mTLS 用プロパティを注入 ---
-    @Value("${keycloak.mtls.key-store}")
-    private String mtlsKeyStorePath;          // 例: "ssl/oidc-mtls-client-keystore.p12"
+    private final MtlsProperties mtlsProperties;
 
-    @Value("${keycloak.mtls.key-store-password}")
-    private String mtlsKeyStorePassword;      // 例: "changeit"
-
-    @Value("${keycloak.mtls.key-store-type:PKCS12}")
-    private String mtlsKeyStoreType;          // 例: "PKCS12"
-
-    @Value("${keycloak.mtls.trust-store}")
-    private String mtlsTrustStorePath;        // 例: "ssl/keycloak-server-truststore.p12"
-
-    @Value("${keycloak.mtls.trust-store-password}")
-    private String mtlsTrustStorePassword;    // 例: "changeit"
-
-    @Value("${keycloak.mtls.trust-store-type:PKCS12}")
-    private String mtlsTrustStoreType;        // 例: "PKCS12"
+    public TokenClientService(MtlsProperties mtlsProperties) {
+        this.mtlsProperties = mtlsProperties;
+    }
 
     /**
      * token エンドポイントに対する application/x-www-form-urlencoded POST を行い、レスポンス文字列を返す。
@@ -78,34 +65,34 @@ public class TokenClientService {
     }
 
     /**
-     * keycloak.mtls.* の設定値を使って mTLS 用の SSLContext を構築する。
+     * application.keycloak.mtls.* の設定値を使って mTLS 用の SSLContext を構築する。
      */
     private SSLContext buildMtlsSslContext() throws Exception {
         logger.debug("Building mTLS SSLContext");
-        logger.debug("  key-store        = {}", mtlsKeyStorePath);
-        logger.debug("  trust-store      = {}", mtlsTrustStorePath);
-        logger.debug("  key-store-type   = {}", mtlsKeyStoreType);
-        logger.debug("  trust-store-type = {}", mtlsTrustStoreType);
+        logger.debug("  key-store        = {}", mtlsProperties.getKeyStore());
+        logger.debug("  trust-store      = {}", mtlsProperties.getTrustStore());
+        logger.debug("  key-store-type   = {}", mtlsProperties.getKeyStoreType());
+        logger.debug("  trust-store-type = {}", mtlsProperties.getTrustStoreType());
 
         // --- クライアント側 keystore (クライアント証明書＋秘密鍵) ---
-        KeyStore keyStore = KeyStore.getInstance(mtlsKeyStoreType);
-        try (InputStream ksStream = getClass().getClassLoader().getResourceAsStream(mtlsKeyStorePath)) {
+        KeyStore keyStore = KeyStore.getInstance(mtlsProperties.getKeyStoreType());
+        try (InputStream ksStream = getClass().getClassLoader().getResourceAsStream(mtlsProperties.getKeyStore())) {
             if (ksStream == null) {
-                throw new IllegalStateException("mTLS key-store not found in classpath: " + mtlsKeyStorePath);
+                throw new IllegalStateException("mTLS key-store not found in classpath: " + mtlsProperties.getKeyStore());
             }
-            keyStore.load(ksStream, mtlsKeyStorePassword.toCharArray());
+            keyStore.load(ksStream, mtlsProperties.getKeyStorePassword().toCharArray());
         }
 
         KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-        kmf.init(keyStore, mtlsKeyStorePassword.toCharArray());
+        kmf.init(keyStore, mtlsProperties.getKeyStorePassword().toCharArray());
 
         // --- TrustStore (Keycloakのサーバ証明書 or CA) ---
-        KeyStore trustStore = KeyStore.getInstance(mtlsTrustStoreType);
-        try (InputStream tsStream = getClass().getClassLoader().getResourceAsStream(mtlsTrustStorePath)) {
+        KeyStore trustStore = KeyStore.getInstance(mtlsProperties.getTrustStoreType());
+        try (InputStream tsStream = getClass().getClassLoader().getResourceAsStream(mtlsProperties.getTrustStore())) {
             if (tsStream == null) {
-                throw new IllegalStateException("mTLS trust-store not found in classpath: " + mtlsTrustStorePath);
+                throw new IllegalStateException("mTLS trust-store not found in classpath: " + mtlsProperties.getTrustStore());
             }
-            trustStore.load(tsStream, mtlsTrustStorePassword.toCharArray());
+            trustStore.load(tsStream, mtlsProperties.getTrustStorePassword().toCharArray());
         }
 
         TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());

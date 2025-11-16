@@ -22,7 +22,7 @@ public class CallbackController {
         this.sessionStateService = sessionStateService;
     }
 
-    @GetMapping("${app.path.callback:/callback}")
+    @GetMapping("${application.path.callback:/callback}")
     public String callback(@RequestParam MultiValueMap<String, String> requestParams,
                            HttpSession session,
                            Model model) {

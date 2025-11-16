@@ -1,13 +1,13 @@
 package com.example.oidcclient.controller;
 
 import com.example.oidcclient.TokenClientService;
+import com.example.oidcclient.config.properties.AppPathProperties;
 import com.example.oidcclient.service.PkceService;
 import com.example.oidcclient.service.SessionStateService;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -44,14 +44,8 @@ public class IntegrationAuthTokenFlowTest {
     @Autowired
     private SessionStateService sessionStateService;
 
-    @Value("${app.path.authorization-flow:/authorization-flow}")
-    private String authorizationFlowPath;
-
-    @Value("${app.path.authorize:/authorize}")
-    private String authorizePath;
-
-    @Value("${app.path.token-request:/token-request}")
-    private String tokenRequestPath;
+    @Autowired
+    private AppPathProperties appPathProperties;
 
     @Test
     void authorize_then_tokenRequest_reusesSessionCodeVerifier() throws Exception {
@@ -68,7 +62,7 @@ public class IntegrationAuthTokenFlowTest {
 
         MockHttpSession session = new MockHttpSession();
 
-        mockMvc.perform(get(authorizationFlowPath).session(session))
+        mockMvc.perform(get(appPathProperties.getAuthorizationFlow()).session(session))
             .andExpect(status().isOk());
 
         SessionStateService.PkceContext pkceContext = sessionStateService.loadPkceContext(session);
@@ -76,7 +70,7 @@ public class IntegrationAuthTokenFlowTest {
         String codeVerifier = pkceContext.codeVerifier();
         String codeChallenge = pkceService.generateChallenge(codeVerifier);
 
-        mockMvc.perform(post(authorizePath)
+        mockMvc.perform(post(appPathProperties.getAuthorize())
                         .with(csrf())
                         .session(session)
                         .param("response_type", "code")
@@ -88,7 +82,7 @@ public class IntegrationAuthTokenFlowTest {
                         .param("code_challenge_method", "S256"))
                 .andExpect(status().is3xxRedirection());
 
-        mockMvc.perform(post(tokenRequestPath)
+        mockMvc.perform(post(appPathProperties.getTokenRequest())
                         .with(csrf())
                         .session(session)
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)

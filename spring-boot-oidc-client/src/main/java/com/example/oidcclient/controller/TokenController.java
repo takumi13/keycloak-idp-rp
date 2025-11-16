@@ -32,7 +32,7 @@ public class TokenController {
      * token request を行うエンドポイント。
      * セッションから PKCE の code_verifier を取り出して form に含める（存在する場合）。
      */
-    @PostMapping("${app.path.token-request:/token-request}")
+    @PostMapping("${application.path.token-request:/token-request}")
     public String requestToken(
             @RequestParam(name = "token_endpoint", required = false) String tokenEndpoint,
             @RequestParam(name = "code", required = false) String code,

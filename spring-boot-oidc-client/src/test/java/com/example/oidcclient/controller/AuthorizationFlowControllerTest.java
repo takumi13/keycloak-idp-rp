@@ -1,9 +1,10 @@
 package com.example.oidcclient.controller;
 
+import com.example.oidcclient.config.properties.AppPathProperties;
+import com.example.oidcclient.config.properties.OidcClientProperties;
 import com.example.oidcclient.service.PkceService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
@@ -27,21 +28,15 @@ public class AuthorizationFlowControllerTest {
     @Autowired
     private PkceService pkceService;
 
-    @Value("${keycloak.host:https://localhost:8443}")
-    private String keycloakHost;
+    @Autowired
+    private OidcClientProperties oidcClientProperties;
 
-    @Value("${keycloak.context-path:/realms/myrealm/protocol/openid-connect}")
-    private String keycloakContextPath;
-
-    @Value("${app.path.authorization-flow:/authorization-flow}")
-    private String authorizationFlowPath;
-
-    @Value("${app.path.authorize:/authorize}")
-    private String authorizePath;
+    @Autowired
+    private AppPathProperties appPathProperties;
 
     private String buildAuthEndpoint() {
-        String host = keycloakHost == null ? "" : keycloakHost.trim();
-        String ctx = keycloakContextPath == null ? "" : keycloakContextPath.trim();
+        String host = oidcClientProperties.getHost() == null ? "" : oidcClientProperties.getHost().trim();
+        String ctx = oidcClientProperties.getContextPath() == null ? "" : oidcClientProperties.getContextPath().trim();
 
         if (host.endsWith("/")) host = host.substring(0, host.length() - 1);
         if (!ctx.startsWith("/")) ctx = "/" + ctx;
@@ -52,7 +47,7 @@ public class AuthorizationFlowControllerTest {
 
     @Test
     public void showForm_returnsOk() throws Exception {
-        mockMvc.perform(get(authorizationFlowPath))
+        mockMvc.perform(get(appPathProperties.getAuthorizationFlow()))
                 .andExpect(status().isOk());
     }
 
@@ -65,7 +60,7 @@ public class AuthorizationFlowControllerTest {
         String scope = "openid profile";
         String state = "xyz";
 
-        MvcResult result = mockMvc.perform(post(authorizePath)
+        MvcResult result = mockMvc.perform(post(appPathProperties.getAuthorize())
                         .param("authorization_endpoint", endpoint)
                         .param("response_type", responseType)
                         .param("client_id", clientId)
@@ -99,7 +94,7 @@ public class AuthorizationFlowControllerTest {
         // クライアント側で生成する code_challenge をテスト側でも算出して送信する
         String codeChallenge = pkceService.generateChallenge(codeVerifier);
 
-        MvcResult result = mockMvc.perform(post(authorizePath)
+        MvcResult result = mockMvc.perform(post(appPathProperties.getAuthorize())
                         .param("authorization_endpoint", endpoint)
                         .param("response_type", responseType)
                         .param("client_id", clientId)

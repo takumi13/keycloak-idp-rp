@@ -40,6 +40,19 @@
 
 詳細な検討は `local/0.4.コントローラ責務分離計画.md` を参照してください。
 
+## 設定プロパティ
+
+`@ConfigurationProperties` を利用して主要な設定をグルーピングしています。`spring-boot-oidc-client/src/main/resources/application.properties` では以下のキーを調整してください。
+
+| プレフィックス | 主な項目 | 利用箇所 |
+| --- | --- | --- |
+| `application.oidc.*` | `host`, `context-path` | `OidcClientProperties` → `OidcClientService` が認可/トークンエンドポイントを組み立てる際に利用。 |
+| `application.keycloak.mtls.*` | `key-store`, `trust-store` など | `MtlsProperties` → `TokenClientService` が mTLS 用 SSLContext を構築。 |
+| `application.pkce.*` | `code-verifier-size` | `PkceProperties` → `PkceService` が PKCE のサイズバリデーションに使用。 |
+| `application.path.*` | `root`, `home`, `authorization-flow` など | `AppPathProperties` → `SecurityConfig` やコントローラのリクエストマッピングで共有。 |
+
+テスト用の `src/test/resources/application.properties` にも mTLS 系のキーを配置しており、`./mvnw test` 実行時に同じ構成で解決されます。
+
 ## セットアップ
 
 ### 1. KeycloakとMySQLの起動
