@@ -13,7 +13,7 @@ public class SecurityConfig {
     @Value("${app.path.root:/}")
     private String rootPath;
 
-    @Value("${app.path.authorization-flow:/authorization_flow}")
+    @Value("${app.path.authorization-flow:/authorization-flow}")
     private String authorizationFlowPath;
 
     @Value("${app.path.authorize:/authorize}")
@@ -22,7 +22,7 @@ public class SecurityConfig {
     @Value("${app.path.callback:/callback}")
     private String callbackPath;
 
-    @Value("${app.path.token-request:/token_request}")
+    @Value("${app.path.token-request:/token-request}")
     private String tokenRequestPath;
 
     @Value("${app.path.token:/token}")

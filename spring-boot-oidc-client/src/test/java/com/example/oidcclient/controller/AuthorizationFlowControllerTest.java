@@ -1,17 +1,16 @@
 package com.example.oidcclient.controller;
 
+import com.example.oidcclient.service.PkceService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -25,13 +24,16 @@ public class AuthorizationFlowControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private PkceService pkceService;
+
     @Value("${keycloak.host:https://localhost:8443}")
     private String keycloakHost;
 
     @Value("${keycloak.context-path:/realms/myrealm/protocol/openid-connect}")
     private String keycloakContextPath;
 
-    @Value("${app.path.authorization-flow:/authorization_flow}")
+    @Value("${app.path.authorization-flow:/authorization-flow}")
     private String authorizationFlowPath;
 
     @Value("${app.path.authorize:/authorize}")
@@ -50,7 +52,7 @@ public class AuthorizationFlowControllerTest {
 
     @Test
     public void showForm_returnsOk() throws Exception {
-        mockMvc.perform(get("/authorization-flow"))
+        mockMvc.perform(get(authorizationFlowPath))
                 .andExpect(status().isOk());
     }
 
@@ -63,7 +65,7 @@ public class AuthorizationFlowControllerTest {
         String scope = "openid profile";
         String state = "xyz";
 
-        MvcResult result = mockMvc.perform(post("/authorize")
+        MvcResult result = mockMvc.perform(post(authorizePath)
                         .param("authorization_endpoint", endpoint)
                         .param("response_type", responseType)
                         .param("client_id", clientId)
@@ -95,7 +97,7 @@ public class AuthorizationFlowControllerTest {
         String state = "xyz";
         String codeVerifier = "TKwV36z4a0lK9fIupr2yThIjvy7y1nGDE6VQ6ikM2nU";
         // クライアント側で生成する code_challenge をテスト側でも算出して送信する
-        String codeChallenge = AuthorizationFlowController.generateS256CodeChallenge(codeVerifier);
+        String codeChallenge = pkceService.generateChallenge(codeVerifier);
 
         MvcResult result = mockMvc.perform(post(authorizePath)
                         .param("authorization_endpoint", endpoint)

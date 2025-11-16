@@ -1,7 +1,7 @@
 package com.example.oidcclient.controller;
 
-import com.example.oidcclient.TokenClientService;
-import org.springframework.beans.factory.annotation.Value;
+import com.example.oidcclient.service.OidcClientService;
+import com.example.oidcclient.service.SessionStateService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,17 +18,13 @@ public class TokenController {
 
     private static final Logger logger = LoggerFactory.getLogger(TokenController.class);
 
-    @Value("${keycloak.host:https://localhost:8443}")
-    private String keycloakHost;
-
-    @Value("${keycloak.context-path:/realms/myrealm/protocol/openid-connect}")
-    private String keycloakContextPath;
-
-    private final TokenClientService tokenClientService;
+    private final OidcClientService oidcClientService;
+    private final SessionStateService sessionStateService;
 
     // コンストラクタインジェクション
-    public TokenController(TokenClientService tokenClientService) {
-        this.tokenClientService = tokenClientService;
+    public TokenController(OidcClientService oidcClientService, SessionStateService sessionStateService) {
+        this.oidcClientService = oidcClientService;
+        this.sessionStateService = sessionStateService;
     }
 
     /**
@@ -47,20 +43,11 @@ public class TokenController {
             @RequestParam(name = "state", required = false) String state,
             HttpSession session
     ) throws Exception {
-        String endpoint = (tokenEndpoint == null || tokenEndpoint.isBlank()) ? buildDefaultTokenEndpoint() : tokenEndpoint;
-
         String codeVerifier = null;
-        String sessionKey = null;
-
-        if (session.getAttribute("code_challenge_method") != null) {
+        if (sessionStateService.hasPkceContext(session)) {
             codeVerifier = (codeVerifierParam != null && !codeVerifierParam.isBlank()) ? codeVerifierParam : null;
-            sessionKey = (state != null && !state.isBlank()) ? "code_verifier:" + state : "code_verifier";
             if (codeVerifier == null) {
-                Object cvObj = session.getAttribute(sessionKey);
-                if (cvObj != null) {
-                    codeVerifier = cvObj.toString();
-                    session.removeAttribute(sessionKey);
-                }
+                codeVerifier = sessionStateService.consumeCodeVerifier(session, state);
             }
             logger.debug("code_verifier: {}", codeVerifier);
         }
@@ -74,17 +61,6 @@ public class TokenController {
         if (codeVerifier != null && !codeVerifier.isBlank()) form.put("code_verifier", codeVerifier);
 
         // ★ mTLS 付きで token エンドポイントに POST
-        return tokenClientService.requestToken(endpoint, form);
-    }
-
-    private String buildDefaultTokenEndpoint() {
-        String host = keycloakHost == null ? "" : keycloakHost.trim();
-        String ctx = keycloakContextPath == null ? "" : keycloakContextPath.trim();
-
-        if (host.endsWith("/")) host = host.substring(0, host.length() - 1);
-        if (!ctx.startsWith("/")) ctx = "/" + ctx;
-        if (ctx.endsWith("/")) ctx = ctx.substring(0, ctx.length() - 1);
-
-        return host + ctx + "/token";
+        return oidcClientService.requestToken(tokenEndpoint, form);
     }
 }
