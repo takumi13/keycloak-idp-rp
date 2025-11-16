@@ -67,7 +67,8 @@ public class TokenClientService {
     /**
      * application.keycloak.mtls.* の設定値を使って mTLS 用の SSLContext を構築する。
      */
-    private SSLContext buildMtlsSslContext() throws Exception {
+    SSLContext buildMtlsSslContext() throws Exception {
+        // Visible for optional mTLS smoke test that validates bundled keystores.
         logger.debug("Building mTLS SSLContext");
         logger.debug("  key-store        = {}", mtlsProperties.getKeyStore());
         logger.debug("  trust-store      = {}", mtlsProperties.getTrustStore());

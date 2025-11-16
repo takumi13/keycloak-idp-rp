@@ -1,5 +1,6 @@
 package com.example.oidcclient.controller;
 
+import com.example.oidcclient.config.properties.AppPathProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -18,9 +19,12 @@ public class CallbackControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private AppPathProperties appPathProperties;
+
     @Test
     void callbackViewHasModel() throws Exception {
-        mockMvc.perform(get("/callback").param("code", "auth-code").param("state", "abc"))
+        mockMvc.perform(get(appPathProperties.getCallback()).param("code", "auth-code").param("state", "abc"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("callback"))
                 .andExpect(model().attributeExists("callback"));

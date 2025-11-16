@@ -125,6 +125,31 @@ MockMvc ベースのテスト (`IntegrationAuthTokenFlowTest` など) が実行�
 ./mvnw -pl spring-boot-oidc-client test -Dtest=com.example.oidcclient.controller.IntegrationAuthTokenFlowTest
 ```
 
+#### テスト用証明書と mTLS 検証
+
+- アプリ／テストの双方で `spring-boot-oidc-client/src/main/resources/ssl/*.p12` を読み込みます。`src/test/resources/application.properties` には `application.keycloak.mtls.*` が本番と同じ値で定義されているため、証明書ファイルを削除しない限り追加コピーは不要です。
+- WSL でビルドする場合は、モジュール直下で `mvn clean package` を実行してください。
+
+```bash
+cd spring-boot-oidc-client
+mvn clean package
+```
+
+- mTLS の実証用スモークテストとして `TokenClientServiceMtlsSmokeTest` を追加済みです。環境変数 `ENABLE_MTLS_TESTS=true` を付けた実行のみで起動し、CI ではスキップされます。
+
+```bash
+cd spring-boot-oidc-client
+ENABLE_MTLS_TESTS=true ./mvnw test -Dtest=com.example.oidcclient.TokenClientServiceMtlsSmokeTest
+```
+
+- 追加で `-Djunit.jupiter.tags=mtls` を指定すると `@Tag("mtls")` 付きテストだけを対象にできます。
+- 同様に `mvn clean package` でも `ENABLE_MTLS_TESTS=true` を付ければスモークテストを含めてビルドできます。
+
+```bash
+cd spring-boot-oidc-client
+ENABLE_MTLS_TESTS=true mvn clean package
+```
+
 ## ドキュメントリンク
 
 - Controller 再設計の詳細: `local/0.4.コントローラ責務分離計画.md`
