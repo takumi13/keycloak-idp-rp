@@ -19,6 +19,9 @@ public class SecurityConfig {
     @Value("${app.path.authorize:/authorize}")
     private String authorizePath;
 
+    @Value("${app.path.home:/home}")
+    private String homePath;
+
     @Value("${app.path.callback:/callback}")
     private String callbackPath;
 
@@ -33,6 +36,7 @@ public class SecurityConfig {
         // ここで許可するパスをプロパティから組み立て
         String[] permit = new String[] {
                 rootPath,
+                homePath,
                 authorizationFlowPath,
                 authorizePath,
                 callbackPath,
