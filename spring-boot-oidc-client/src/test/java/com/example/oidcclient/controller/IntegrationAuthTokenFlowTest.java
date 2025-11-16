@@ -2,6 +2,7 @@ package com.example.oidcclient.controller;
 
 import com.example.oidcclient.TokenClientService;
 import com.example.oidcclient.service.PkceService;
+import com.example.oidcclient.service.SessionStateService;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -40,6 +41,9 @@ public class IntegrationAuthTokenFlowTest {
     @Autowired
     private TokenClientService tokenClientService;
 
+    @Autowired
+    private SessionStateService sessionStateService;
+
     @Value("${app.path.authorization-flow:/authorization-flow}")
     private String authorizationFlowPath;
 
@@ -65,10 +69,11 @@ public class IntegrationAuthTokenFlowTest {
         MockHttpSession session = new MockHttpSession();
 
         mockMvc.perform(get(authorizationFlowPath).session(session))
-                .andExpect(status().isOk());
+            .andExpect(status().isOk());
 
-        String state = session.getAttribute("state").toString();
-        String codeVerifier = session.getAttribute("code_verifier").toString();
+        SessionStateService.PkceContext pkceContext = sessionStateService.loadPkceContext(session);
+        String state = pkceContext.state();
+        String codeVerifier = pkceContext.codeVerifier();
         String codeChallenge = pkceService.generateChallenge(codeVerifier);
 
         mockMvc.perform(post(authorizePath)
@@ -97,6 +102,10 @@ public class IntegrationAuthTokenFlowTest {
         Map<String, String> form = capturedForm.get();
         Assertions.assertThat(form).isNotNull();
         Assertions.assertThat(form.get("code_verifier")).isEqualTo(codeVerifier);
+
+        SessionStateService.PkceContext clearedContext = sessionStateService.loadPkceContext(session);
+        Assertions.assertThat(clearedContext.codeVerifier()).isNull();
+        Assertions.assertThat(clearedContext.state()).isNull();
     }
 
     @TestConfiguration

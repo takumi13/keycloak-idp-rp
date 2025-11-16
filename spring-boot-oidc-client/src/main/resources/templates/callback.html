@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -25,6 +25,21 @@
   <h1>Authorization Callback</h1>
   <p class="hint">このページは認可応答 (クエリパラメータ) を表示します。下のフォームで token エンドポイントへリクエストを送信できます。</p>
 
+  <div th:if="${callback != null && callback.rawParameters() != null && !callback.rawParameters().isEmpty()}" class="hint">
+    <strong>Server observed parameters</strong>
+    <table>
+      <thead><tr><th>Parameter</th><th>Values</th></tr></thead>
+      <tbody>
+        <tr th:each="entry : ${callback.rawParameters().entrySet()}">
+          <td th:text="${entry.key}">param</td>
+          <td>
+            <div th:each="val : ${entry.value}" th:text="${val}">value</div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
   <div id="result">
     <p>読み込み中…</p>
   </div>
@@ -46,15 +61,15 @@
     </label>
 
     <label>code
-      <input type="text" id="code" name="code" required>
+      <input type="text" id="code" name="code" required th:value="${callback != null ? callback.code() : ''}">
     </label>
 
     <label>state
-      <input type="text" id="state" name="state">
+      <input type="text" id="state" name="state" th:value="${callback != null ? callback.state() : ''}">
     </label>
 
     <label>redirect_uri
-      <input type="url" id="redirect_uri" name="redirect_uri" value="https://localhost:8081/callback">
+      <input type="url" id="redirect_uri" name="redirect_uri" th:value="${callback != null && callback.redirectUri() != null ? callback.redirectUri() : 'https://localhost:8081/callback'}">
     </label>
 
     <label>client_id
@@ -78,6 +93,18 @@
 
   <h2>レスポンス</h2>
   <pre id="responseBox">未送信</pre>
+
+  <div th:if="${callback != null && callback.pkceContext() != null}" class="hint">
+    <h2>PKCE Session Snapshot</h2>
+    <table>
+      <tbody>
+        <tr><th>state</th><td th:text="${callback.pkceContext().state() != null ? callback.pkceContext().state() : '-'}">-</td></tr>
+        <tr><th>nonce</th><td th:text="${callback.pkceContext().nonce() != null ? callback.pkceContext().nonce() : '-'}">-</td></tr>
+        <tr><th>code_verifier (stored)</th><td th:text="${callback.pkceContext().codeVerifier() != null ? callback.pkceContext().codeVerifier() : '-'}">-</td></tr>
+        <tr><th>code_challenge_method</th><td th:text="${callback.pkceContext().codeChallengeMethod() != null ? callback.pkceContext().codeChallengeMethod() : '-'}">-</td></tr>
+      </tbody>
+    </table>
+  </div>
 
   <script>
     function parseQuery(qs) {

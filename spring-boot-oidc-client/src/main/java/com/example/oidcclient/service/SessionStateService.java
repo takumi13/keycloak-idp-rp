@@ -44,9 +44,27 @@ public class SessionStateService {
         return session.getAttribute(CODE_CHALLENGE_METHOD_ATTR) != null;
     }
 
+    public PkceContext loadPkceContext(HttpSession session) {
+        return new PkceContext(
+                attributeToString(session.getAttribute(STATE_ATTR)),
+                attributeToString(session.getAttribute(NONCE_ATTR)),
+                attributeToString(session.getAttribute(CODE_VERIFIER_PREFIX)),
+                attributeToString(session.getAttribute(CODE_CHALLENGE_METHOD_ATTR))
+        );
+    }
+
     public void clearPkceContext(HttpSession session) {
+        clearPkceContext(session, attributeToString(session.getAttribute(STATE_ATTR)));
+    }
+
+    public void clearPkceContext(HttpSession session, String state) {
         session.removeAttribute(CODE_CHALLENGE_METHOD_ATTR);
         session.removeAttribute(CODE_VERIFIER_PREFIX);
+        session.removeAttribute(STATE_ATTR);
+        session.removeAttribute(NONCE_ATTR);
+        if (state != null && !state.isBlank()) {
+            session.removeAttribute(composeVerifierKey(state));
+        }
     }
 
     private String composeVerifierKey(String state) {
@@ -55,4 +73,10 @@ public class SessionStateService {
         }
         return CODE_VERIFIER_PREFIX;
     }
+
+    private String attributeToString(Object value) {
+        return value == null ? null : value.toString();
+    }
+
+    public record PkceContext(String state, String nonce, String codeVerifier, String codeChallengeMethod) {}
 }

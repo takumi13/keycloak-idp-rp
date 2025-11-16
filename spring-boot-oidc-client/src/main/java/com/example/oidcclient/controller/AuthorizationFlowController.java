@@ -43,6 +43,8 @@ public class AuthorizationFlowController {
             @RequestParam(name = "client_id", required = false) String clientId,
             HttpSession session,
             Model model) {
+        // 既存の PKCE コンテキストがあれば破棄してから新しく生成
+        sessionStateService.clearPkceContext(session);
         // PKCE code_verifier をサービスで生成
         String codeVerifier = pkceService.generateVerifier();
         String state = UUID.randomUUID().toString();

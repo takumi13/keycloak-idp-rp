@@ -2,6 +2,7 @@ package com.example.oidcclient.controller;
 
 import com.example.oidcclient.service.OidcClientService;
 import com.example.oidcclient.service.SessionStateService;
+import com.example.oidcclient.service.SessionStateService.PkceContext;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,12 +44,14 @@ public class TokenController {
             @RequestParam(name = "state", required = false) String state,
             HttpSession session
     ) throws Exception {
-        String codeVerifier = null;
-        if (sessionStateService.hasPkceContext(session)) {
-            codeVerifier = (codeVerifierParam != null && !codeVerifierParam.isBlank()) ? codeVerifierParam : null;
-            if (codeVerifier == null) {
-                codeVerifier = sessionStateService.consumeCodeVerifier(session, state);
-            }
+        PkceContext pkceContext = sessionStateService.loadPkceContext(session);
+        boolean pkceActive = pkceContext.codeChallengeMethod() != null && !pkceContext.codeChallengeMethod().isBlank();
+
+        String codeVerifier = (codeVerifierParam != null && !codeVerifierParam.isBlank()) ? codeVerifierParam : null;
+        if (pkceActive && (codeVerifier == null || codeVerifier.isBlank())) {
+            codeVerifier = sessionStateService.consumeCodeVerifier(session, state);
+        }
+        if (pkceActive) {
             logger.debug("code_verifier: {}", codeVerifier);
         }
 
@@ -61,6 +64,12 @@ public class TokenController {
         if (codeVerifier != null && !codeVerifier.isBlank()) form.put("code_verifier", codeVerifier);
 
         // ★ mTLS 付きで token エンドポイントに POST
-        return oidcClientService.requestToken(tokenEndpoint, form);
+        try {
+            return oidcClientService.requestToken(tokenEndpoint, form);
+        } finally {
+            if (pkceActive) {
+                sessionStateService.clearPkceContext(session, state);
+            }
+        }
     }
 }
