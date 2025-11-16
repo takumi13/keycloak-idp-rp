@@ -29,7 +29,7 @@ public class AuthorizationController {
     private int pkceCodeVerifierSize;
 
     // Keycloak のホストとコンテキストを properties から注入
-    @Value("${keycloak.host:http://localhost:8080}")
+    @Value("${keycloak.host:https://localhost:8443}")
     private String keycloakHost;
 
     @Value("${keycloak.context-path:/realms/myrealm/protocol/openid-connect}")
