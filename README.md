@@ -6,16 +6,18 @@
 
 ## プロジェクトの構成
 
-- `spring-boot-oidc-client/src/main/java/com/example/oidcclient/OidcClientApplication.java`: エントリーポイント。
-- `spring-boot-oidc-client/src/main/java/com/example/oidcclient/controller/HomeController.java`: Home 画面。
-- `spring-boot-oidc-client/src/main/java/com/example/oidcclient/controller/AuthorizationFlowController.java`: 認可フォーム表示と `/authorize` リクエスト生成を担当。
-- `spring-boot-oidc-client/src/main/java/com/example/oidcclient/controller/CallbackController.java`: `/callback` で受信したクエリ/エラーを `CallbackViewModel` にまとめてビューへ渡す。
-- `spring-boot-oidc-client/src/main/java/com/example/oidcclient/controller/TokenController.java`: `/token-request` POST のみを扱い、PKCE再利用を `SessionStateService` に委譲。
-- `spring-boot-oidc-client/src/main/java/com/example/oidcclient/service/SessionStateService.java`: HttpSession 上の state/nonce/code_verifier を一元管理。
-- `spring-boot-oidc-client/src/main/java/com/example/oidcclient/service/PkceService.java`: PKCE の code_verifier / code_challenge を生成。
-- `spring-boot-oidc-client/src/main/resources/templates/*.html`: Thymeleaf テンプレート (`authorization_flow.html`, `callback.html`, `home.html`)。
-- `spring-boot-oidc-client/src/test/java/com/example/oidcclient/controller/*Test.java`: MockMvc ベースのコントローラテスト群。
-- `local/0.4.コントローラ責務分離計画.md`: Controller 責務分離に関する設計メモ。
+| レイヤ | パス | 役割 |
+| --- | --- | --- |
+| アプリケーション | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/OidcClientApplication.java` | Spring Boot エントリーポイント。`@ConfigurationPropertiesScan` で各設定を登録。 |
+| Controller | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/controller/HomeController.java` | Home 画面を表示し、エントリポイントを提供。 |
+| Controller | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/controller/AuthorizationFlowController.java` | 認可フォームの表示と `/authorize` リダイレクト生成。 |
+| Controller | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/controller/CallbackController.java` | `/callback` のクエリ/エラーを `CallbackViewModel` へマッピング。 |
+| Controller | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/controller/TokenController.java` | `/token-request` POST を受け、PKCE 情報を `SessionStateService` から取得して mTLS Token リクエストを発行。 |
+| Service | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/service/SessionStateService.java` | HttpSession に保存する state/nonce/code_verifier/code_challenge_method を集約管理。 |
+| Service | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/service/PkceService.java` | PKCE の code_verifier / code_challenge を生成。 |
+| View | `spring-boot-oidc-client/src/main/resources/templates/*.html` | Thymeleaf テンプレート（`authorization_flow.html`, `callback.html`, `home.html`）。 |
+| Test | `spring-boot-oidc-client/src/test/java/com/example/oidcclient/controller/*Test.java` | MockMvc ベースのコントローラテストおよび統合テスト。 |
+| Documentation | `local/0.4.コントローラ責務分離計画.md` | Controller 責務分離とルーティング設計のメモ。 |
 
 ## アーキテクチャ概要
 
@@ -57,15 +59,36 @@
 
 ### 1. KeycloakとMySQLの起動
 
-```bash
-$ docker compose version
-Docker Compose version v2.35.1
+1. `docker-compose.yml` と同じ階層に `.env` を作成し、テスト用の資格情報を定義します（値は必要に応じて変更してください）。
 
-$ docker --version
-Docker version 28.1.1, build 4eba377
+   ```bash
+   cat <<'EOF' > .env
+   MYSQL_ROOT_PASSWORD=changeit
+   MYSQL_DATABASE=keycloak
+   MYSQL_USER=keycloak
+   MYSQL_PASSWORD=keycloak
 
-$ docker compose up
-```
+   KEYCLOAK_ADMIN=admin
+   KEYCLOAK_ADMIN_PASSWORD=admin
+
+   KC_DB=mysql
+   KC_DB_URL=jdbc:mysql://mysql:3306
+   KC_DB_URL_DATABASE=keycloak
+   KC_DB_USERNAME=${MYSQL_USER}
+   KC_DB_PASSWORD=${MYSQL_PASSWORD}
+   EOF
+   ```
+
+2. `certs/` および `ssl/` フォルダの証明書が存在することを確認します（`docker-compose.yml` では Keycloak の HTTPS 証明書と truststore をホストからマウントします）。
+3. Docker と Compose のバージョンを確認したうえで、コンテナを起動します。
+
+   ```bash
+   docker compose version
+   docker --version
+   docker compose up -d
+   ```
+
+4. `docker compose ps` で `mysql` のヘルスチェックが `healthy` になった後、Keycloak にアクセスしてレルムやクライアント設定を行います。詳細は `local/0.7.ドキュメントとdocker-composeの更新.md` の手順にも記載しています。
 
 ### 2. OIDC認可サーバアプリケーション（Keycloak）のアプリケーション設定
 
@@ -113,36 +136,20 @@ $ docker compose up
 
 ### 4. ビルドとテスト
 
-Controller 責務分離が意図した通り動いているかは Maven のビルドで検証できます。
+Controller 責務分離が意図した通り動いているかは Maven のビルドで検証できます。主要なコマンドは次の通りです。
 
-```bash
-./mvnw clean package
-```
+| シナリオ | コマンド | 備考 |
+| --- | --- | --- |
+| CI 相当 (`spring-boot-oidc-client` モジュールのみ) | `./mvnw clean test` | MockMvc テスト＋`TokenClientServiceMtlsSmokeTest`(タグ付き) 以外を実行 |
+| WSL などローカル Maven | `cd spring-boot-oidc-client`<br>`mvn clean package` | Wrapper を使わずに jar を生成。`target/` 配下の jar を直接起動可能 |
+| mTLS スモークテスト込み | `cd spring-boot-oidc-client`<br>`ENABLE_MTLS_TESTS=true ./mvnw test` | `@Tag("mtls")` テストを opt-in 実行。`TokenClientServiceMtlsSmokeTest` で keystore/truststore 解決を確認 |
 
-MockMvc ベースのテスト (`IntegrationAuthTokenFlowTest` など) が実行され、PKCE の再利用やセッションのクリアが確認できます。特定のテストを実行したい場合は次の通りです。
-
-```bash
-./mvnw -pl spring-boot-oidc-client test -Dtest=com.example.oidcclient.controller.IntegrationAuthTokenFlowTest
-```
+個別のテストクラスを狙い撃ちしたい場合は `-Dtest=...` や `-Djunit.jupiter.tags=mtls` を併用してください。
 
 #### テスト用証明書と mTLS 検証
 
 - アプリ／テストの双方で `spring-boot-oidc-client/src/main/resources/ssl/*.p12` を読み込みます。`src/test/resources/application.properties` には `application.keycloak.mtls.*` が本番と同じ値で定義されているため、証明書ファイルを削除しない限り追加コピーは不要です。
-- WSL でビルドする場合は、モジュール直下で `mvn clean package` を実行してください。
-
-```bash
-cd spring-boot-oidc-client
-mvn clean package
-```
-
-- mTLS の実証用スモークテストとして `TokenClientServiceMtlsSmokeTest` を追加済みです。環境変数 `ENABLE_MTLS_TESTS=true` を付けた実行のみで起動し、CI ではスキップされます。
-
-```bash
-cd spring-boot-oidc-client
-ENABLE_MTLS_TESTS=true ./mvnw test -Dtest=com.example.oidcclient.TokenClientServiceMtlsSmokeTest
-```
-
-- 追加で `-Djunit.jupiter.tags=mtls` を指定すると `@Tag("mtls")` 付きテストだけを対象にできます。
+- mTLS の実証用スモークテストとして `TokenClientServiceMtlsSmokeTest` を追加済みです。環境変数 `ENABLE_MTLS_TESTS=true` を付けた実行のみで起動し、CI ではスキップされます。`-Djunit.jupiter.tags=mtls` と組み合わせればタグ単位での実行制御も可能です。
 - 同様に `mvn clean package` でも `ENABLE_MTLS_TESTS=true` を付ければスモークテストを含めてビルドできます。
 
 ```bash
@@ -152,8 +159,7 @@ ENABLE_MTLS_TESTS=true mvn clean package
 
 ## ドキュメントリンク
 
-- Controller 再設計の詳細: `local/0.4.コントローラ責務分離計画.md`
-- 既存の証明書・依存関係メモ: `local/*.md`, `docs/*.md`
+- 証明書や検証結果の補足: `docs/1.1.証明書情報.md`, `docs/1.2.各種証明書検証結果.md`
 
 ## ライセンス
 

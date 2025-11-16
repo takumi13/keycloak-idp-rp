@@ -1,3 +1,9 @@
+###############################################################################
+# Keycloak + MySQL stack for the Spring Boot OIDC client.
+# - Variables are supplied via .env (see README "KeycloakとMySQLの起動").
+# - Certificate/truststore assets live under certs/ and ssl/.
+# - Additional context: local/0.7.ドキュメントとdocker-composeの更新.md
+###############################################################################
 volumes:
   mysql_data:
 
@@ -8,6 +14,9 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     environment:
+      # ------------------------------------------------------------------
+      # [mysql] Bootstrap credentials (align with .env example in README)
+      # ------------------------------------------------------------------
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
@@ -25,17 +34,23 @@ services:
     image: quay.io/keycloak/keycloak:26.4.1
     container_name: keycloak
     environment:
+      # ------------------------------------------------------------------
+      # [keycloak admin] UI ログインに使う初期資格情報
+      # ------------------------------------------------------------------
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      # ------------------------------------------------------------------
+      # [database] MySQL 接続設定（mysql サービスと同一ネットワーク）
+      # ------------------------------------------------------------------
       KC_DB: ${KC_DB}
       KC_DB_URL: ${KC_DB_URL}
       KC_DB_URL_DATABASE: ${KC_DB_URL_DATABASE}
       KC_DB_USERNAME: ${KC_DB_USERNAME}
       KC_DB_PASSWORD: ${KC_DB_PASSWORD}
 
-      # ------------------------------------------------
-      # Quarkus / Keycloak ログレベルを DEBUG に設定
-      # ------------------------------------------------
+      # ------------------------------------------------------------------
+      # [logging] ローカル検証向けに DEBUG ログとアクセスログを出力
+      # ------------------------------------------------------------------
       KC_LOG: "console,file"
       KC_LOG-FILE: "data/server.log"
       KC_LOG-LEVEL: "DEBUG"
@@ -44,9 +59,9 @@ services:
       QUARKUS_HTTP_RECORD_REQUEST_START_TIME: true
       QUARKUS_HTTP_ACCESS_LOG_PATTERN: "%h %l %u %t \"%r\" %s %b \"%{i,Referer}\" \"%{i,User-Agent}\" %D"
 
-      # ------------------------------------------------
-      # HTTPS / mTLS設定（サーバ証明書 + truststore）
-      # ------------------------------------------------
+      # ------------------------------------------------------------------
+      # [https/mtls] 開発用サーバ証明書と truststore の設定
+      # ------------------------------------------------------------------
       # サーバ証明書（PEM）
       KC_HTTPS_CERTIFICATE_FILE: "/opt/keycloak/conf/tls.crt"
       KC_HTTPS_CERTIFICATE_KEY_FILE: "/opt/keycloak/conf/tls.key"
@@ -56,17 +71,17 @@ services:
       KC_HTTPS_TRUST_STORE_PASSWORD: "changeit"
       KC_HTTPS_TRUST_STORE_TYPE: "PKCS12"
 
-      # クライアント証明書要求モード（必須にしたければ "required"）
+      # クライアント証明書要求モード（"required" で強制 mTLS）
       KC_HTTPS_CLIENT_AUTH: "request"
     ports:
       - "8080:8080"
       - "8443:8443"
     volumes:
-      # KeycloakのHTTPSサーバ証明書
+      # Keycloak HTTPS サーバ証明書（外部 docs/1.1.* を参照）
       - ./certs/keycloak-https-server.crt:/opt/keycloak/conf/tls.crt:ro
       - ./certs/keycloak-https-server.key:/opt/keycloak/conf/tls.key:ro
 
-      # oidc-clientを検証するためのtruststoreをマウント
+      # oidc-client→Keycloak の通信で利用する truststore
       - ./ssl/truststore.p12:/opt/keycloak/conf/truststore.p12:ro
     depends_on:
       mysql:
