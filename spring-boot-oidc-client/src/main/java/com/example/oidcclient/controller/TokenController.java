@@ -3,6 +3,7 @@ package com.example.oidcclient.controller;
 import com.example.oidcclient.service.OidcClientService;
 import com.example.oidcclient.service.SessionStateService;
 import com.example.oidcclient.service.SessionStateService.PkceContext;
+import com.example.oidcclient.service.TokenResponseValidator;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,11 +22,15 @@ public class TokenController {
 
     private final OidcClientService oidcClientService;
     private final SessionStateService sessionStateService;
+    private final TokenResponseValidator tokenResponseValidator;
 
     // コンストラクタインジェクション
-    public TokenController(OidcClientService oidcClientService, SessionStateService sessionStateService) {
+    public TokenController(OidcClientService oidcClientService,
+                           SessionStateService sessionStateService,
+                           TokenResponseValidator tokenResponseValidator) {
         this.oidcClientService = oidcClientService;
         this.sessionStateService = sessionStateService;
+        this.tokenResponseValidator = tokenResponseValidator;
     }
 
     /**
@@ -65,7 +70,9 @@ public class TokenController {
 
         // ★ mTLS 付きで token エンドポイントに POST
         try {
-            return oidcClientService.requestToken(tokenEndpoint, form);
+            String response = oidcClientService.requestToken(tokenEndpoint, form);
+            tokenResponseValidator.validate(response, pkceContext.nonce());
+            return response;
         } finally {
             if (pkceActive) {
                 sessionStateService.clearPkceContext(session, state);

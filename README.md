@@ -15,6 +15,8 @@
 | Controller | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/controller/TokenController.java` | `/token-request` POST を受け、PKCE 情報を `SessionStateService` から取得して mTLS Token リクエストを発行。 |
 | Service | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/service/SessionStateService.java` | HttpSession に保存する state/nonce/code_verifier/code_challenge_method を集約管理。 |
 | Service | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/service/PkceService.java` | PKCE の code_verifier / code_challenge を生成。 |
+| Service | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/service/TokenResponseValidator.java` | Token エンドポイントからの JSON を解析し、`id_token` または `access_token` を `IdTokenValidator` に連携。 |
+| Service | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/service/IdTokenValidator.java` | JWKS 署名・iss/aud/azp/exp/iat/nonce/`at_hash` を検証。`id_token` が無い場合は `access_token` をサロゲートとして検証。 |
 | View | `spring-boot-oidc-client/src/main/resources/templates/*.html` | Thymeleaf テンプレート（`authorization_flow.html`, `callback.html`, `home.html`）。 |
 | Test | `spring-boot-oidc-client/src/test/java/com/example/oidcclient/controller/*Test.java` | MockMvc ベースのコントローラテストおよび統合テスト。 |
 | Documentation | `local/0.4.コントローラ責務分離計画.md` | Controller 責務分離とルーティング設計のメモ。 |
@@ -39,8 +41,7 @@
 2. `POST /authorize` で Keycloak の認可エンドポイントへリダイレクトし、state/nonce/code_challenge を付与。
 3. Keycloak から `GET /callback` へリダイレクトされ、クエリを `callback.html` に表示。PKCE セッションスナップショットも併せて確認可能。
 4. UI から `POST /token-request` を実行すると `TokenController` が code_verifier を復元し、`OidcClientService`→`TokenClientService` で token エンドポイントへ POST。
-
-詳細な検討は `local/0.4.コントローラ責務分離計画.md` を参照してください。
+5. トークンレスポンスは `TokenResponseValidator` が JSON パースし、`IdTokenValidator` で署名・必須クレームを検証。Keycloak が `id_token` を返さない構成でも `access_token` を JWT として検証するフォールバックを実装済みで、`azp` が `client_id` と一致しない場合は即座にエラーとなる。
 
 ## 設定プロパティ
 
@@ -49,6 +50,7 @@
 | プレフィックス | 主な項目 | 利用箇所 |
 | --- | --- | --- |
 | `application.oidc.*` | `host`, `context-path` | `OidcClientProperties` → `OidcClientService` が認可/トークンエンドポイントを組み立てる際に利用。 |
+| `application.oidc.client-id`, `application.oidc.issuer` | 固定の `client_id`, `iss` 期待値 | `IdTokenValidator` が `aud`/`azp`/`iss` を照合する際に参照。 |
 | `application.keycloak.mtls.*` | `key-store`, `trust-store` など | `MtlsProperties` → `TokenClientService` が mTLS 用 SSLContext を構築。 |
 | `application.pkce.*` | `code-verifier-size` | `PkceProperties` → `PkceService` が PKCE のサイズバリデーションに使用。 |
 | `application.path.*` | `root`, `home`, `authorization-flow` など | `AppPathProperties` → `SecurityConfig` やコントローラのリクエストマッピングで共有。 |
@@ -117,9 +119,9 @@
    ./mvnw spring-boot:run
    ```
 
-#### WSL（Windows Subsystem for Linux）を使用する場合
+#### mvnを使用する場合
 
-1. WSLターミナルでプロジェクトのディレクトリに移動します。
+1. プロジェクトのディレクトリに移動します。
 2. 以下のコマンドでアプリケーションをビルドします。
 
    ```bash
@@ -160,7 +162,3 @@ ENABLE_MTLS_TESTS=true mvn clean package
 ## ドキュメントリンク
 
 - 証明書や検証結果の補足: `docs/1.1.証明書情報.md`, `docs/1.2.各種証明書検証結果.md`
-
-## ライセンス
-
-このプロジェクトはMITライセンスの下で提供されています。

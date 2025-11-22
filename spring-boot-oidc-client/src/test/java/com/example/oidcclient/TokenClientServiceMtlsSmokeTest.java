@@ -1,6 +1,7 @@
 package com.example.oidcclient;
 
 import com.example.oidcclient.config.properties.MtlsProperties;
+import com.example.oidcclient.http.KeycloakHttpClientFactory;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -17,14 +18,14 @@ import java.io.InputStream;
 class TokenClientServiceMtlsSmokeTest {
 
     @Autowired
-    private TokenClientService tokenClientService;
+    private KeycloakHttpClientFactory httpClientFactory;
 
     @Autowired
     private MtlsProperties mtlsProperties;
 
     @Test
     void buildsSslContextUsingBundledStores() throws Exception {
-        SSLContext context = tokenClientService.buildMtlsSslContext();
+        SSLContext context = httpClientFactory.getSslContext();
         Assertions.assertThat(context).isNotNull();
         Assertions.assertThat(context.getSupportedSSLParameters().getCipherSuites()).isNotEmpty();
     }

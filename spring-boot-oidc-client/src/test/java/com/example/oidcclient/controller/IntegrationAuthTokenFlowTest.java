@@ -4,6 +4,7 @@ import com.example.oidcclient.TokenClientService;
 import com.example.oidcclient.config.properties.AppPathProperties;
 import com.example.oidcclient.service.PkceService;
 import com.example.oidcclient.service.SessionStateService;
+import com.example.oidcclient.service.TokenResponseValidator;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -108,6 +109,12 @@ public class IntegrationAuthTokenFlowTest {
         @Primary
         TokenClientService tokenClientService() {
             return Mockito.mock(TokenClientService.class);
+        }
+
+        @Bean
+        @Primary
+        TokenResponseValidator tokenResponseValidator() {
+            return Mockito.mock(TokenResponseValidator.class);
         }
     }
 }

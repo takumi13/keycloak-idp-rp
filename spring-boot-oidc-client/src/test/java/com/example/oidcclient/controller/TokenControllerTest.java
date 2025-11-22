@@ -4,6 +4,7 @@ import com.example.oidcclient.config.properties.AppPathProperties;
 import com.example.oidcclient.service.OidcClientService;
 import com.example.oidcclient.service.SessionStateService;
 import com.example.oidcclient.service.SessionStateService.PkceContext;
+import com.example.oidcclient.service.TokenResponseValidator;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -42,6 +43,9 @@ class TokenControllerTest {
     @Autowired
     private OidcClientService oidcClientService;
 
+    @Autowired
+    private TokenResponseValidator tokenResponseValidator;
+
     @Test
     @SuppressWarnings("unchecked")
     void requestToken_consumesPkceFromSession_andClearsContext() throws Exception {
@@ -74,6 +78,8 @@ class TokenControllerTest {
         Assertions.assertThat(form.get("code_verifier")).isEqualTo(codeVerifier);
         Assertions.assertThat(form.get("code")).isEqualTo("authorization-code");
 
+        Mockito.verify(tokenResponseValidator).validate(expectedResponse, nonce);
+
         PkceContext cleared = sessionStateService.loadPkceContext(session);
         Assertions.assertThat(cleared.codeVerifier()).isNull();
         Assertions.assertThat(cleared.state()).isNull();
@@ -85,6 +91,12 @@ class TokenControllerTest {
         @Primary
         OidcClientService oidcClientService() {
             return Mockito.mock(OidcClientService.class);
+        }
+
+        @Bean
+        @Primary
+        TokenResponseValidator tokenResponseValidator() {
+            return Mockito.mock(TokenResponseValidator.class);
         }
     }
 }

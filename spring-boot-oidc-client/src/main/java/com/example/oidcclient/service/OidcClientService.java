@@ -34,7 +34,7 @@ public class OidcClientService {
         if (overrideEndpoint != null && !overrideEndpoint.isBlank()) {
             return overrideEndpoint;
         }
-        return buildEndpoint("/auth");
+        return oidcClientProperties.buildEndpoint("/auth");
     }
 
     /**
@@ -58,24 +58,7 @@ public class OidcClientService {
         if (overrideEndpoint != null && !overrideEndpoint.isBlank()) {
             return overrideEndpoint;
         }
-        return buildEndpoint("/token");
-    }
-
-    private String buildEndpoint(String suffix) {
-        String host = oidcClientProperties.getHost() == null ? "" : oidcClientProperties.getHost().trim();
-        String ctx = oidcClientProperties.getContextPath() == null ? "" : oidcClientProperties.getContextPath().trim();
-
-        if (host.endsWith("/")) {
-            host = host.substring(0, host.length() - 1);
-        }
-        if (!ctx.startsWith("/")) {
-            ctx = "/" + ctx;
-        }
-        if (ctx.endsWith("/")) {
-            ctx = ctx.substring(0, ctx.length() - 1);
-        }
-
-        return host + ctx + suffix;
+        return oidcClientProperties.buildEndpoint("/token");
     }
 
     private static String urlEncode(String value) {

@@ -1,22 +1,16 @@
 package com.example.oidcclient;
 
-import com.example.oidcclient.config.properties.MtlsProperties;
+import com.example.oidcclient.http.KeycloakHttpClientFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManagerFactory;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyStore;
-import java.security.SecureRandom;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -25,10 +19,10 @@ public class TokenClientService {
 
     private static final Logger logger = LoggerFactory.getLogger(TokenClientService.class);
 
-    private final MtlsProperties mtlsProperties;
+    private final HttpClient httpClient;
 
-    public TokenClientService(MtlsProperties mtlsProperties) {
-        this.mtlsProperties = mtlsProperties;
+    public TokenClientService(KeycloakHttpClientFactory httpClientFactory) {
+        this.httpClient = httpClientFactory.getHttpClient();
     }
 
     /**
@@ -49,60 +43,12 @@ public class TokenClientService {
                 .POST(HttpRequest.BodyPublishers.ofString(form))
                 .build();
 
-        // --- mTLS 用の SSLContext を構築 ---
-        SSLContext sslContext = buildMtlsSslContext();
-
-        HttpClient client = HttpClient.newBuilder()
-                .sslContext(sslContext)
-                .build();
-
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         logger.debug("Token response status: {}", response.statusCode());
         logger.debug("Token response body: {}", response.body());
 
         return response.body();
-    }
-
-    /**
-     * application.keycloak.mtls.* の設定値を使って mTLS 用の SSLContext を構築する。
-     */
-    SSLContext buildMtlsSslContext() throws Exception {
-        // Visible for optional mTLS smoke test that validates bundled keystores.
-        logger.debug("Building mTLS SSLContext");
-        logger.debug("  key-store        = {}", mtlsProperties.getKeyStore());
-        logger.debug("  trust-store      = {}", mtlsProperties.getTrustStore());
-        logger.debug("  key-store-type   = {}", mtlsProperties.getKeyStoreType());
-        logger.debug("  trust-store-type = {}", mtlsProperties.getTrustStoreType());
-
-        // --- クライアント側 keystore (クライアント証明書＋秘密鍵) ---
-        KeyStore keyStore = KeyStore.getInstance(mtlsProperties.getKeyStoreType());
-        try (InputStream ksStream = getClass().getClassLoader().getResourceAsStream(mtlsProperties.getKeyStore())) {
-            if (ksStream == null) {
-                throw new IllegalStateException("mTLS key-store not found in classpath: " + mtlsProperties.getKeyStore());
-            }
-            keyStore.load(ksStream, mtlsProperties.getKeyStorePassword().toCharArray());
-        }
-
-        KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-        kmf.init(keyStore, mtlsProperties.getKeyStorePassword().toCharArray());
-
-        // --- TrustStore (Keycloakのサーバ証明書 or CA) ---
-        KeyStore trustStore = KeyStore.getInstance(mtlsProperties.getTrustStoreType());
-        try (InputStream tsStream = getClass().getClassLoader().getResourceAsStream(mtlsProperties.getTrustStore())) {
-            if (tsStream == null) {
-                throw new IllegalStateException("mTLS trust-store not found in classpath: " + mtlsProperties.getTrustStore());
-            }
-            trustStore.load(tsStream, mtlsProperties.getTrustStorePassword().toCharArray());
-        }
-
-        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-        tmf.init(trustStore);
-
-        SSLContext sslContext = SSLContext.getInstance("TLS");
-        sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), new SecureRandom());
-
-        return sslContext;
     }
 
     private static String urlEncode(String s) {
