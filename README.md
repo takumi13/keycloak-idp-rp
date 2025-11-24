@@ -11,15 +11,14 @@
 | アプリケーション | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/OidcClientApplication.java` | Spring Boot エントリーポイント。`@ConfigurationPropertiesScan` で各設定を登録。 |
 | Controller | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/controller/HomeController.java` | Home 画面を表示し、エントリポイントを提供。 |
 | Controller | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/controller/AuthorizationFlowController.java` | 認可フォームの表示と `/authorize` リダイレクト生成。 |
-| Controller | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/controller/CallbackController.java` | `/callback` のクエリ/エラーを `CallbackViewModel` へマッピング。 |
-| Controller | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/controller/TokenController.java` | `/token-request` POST を受け、PKCE 情報を `SessionStateService` から取得して mTLS Token リクエストを発行。 |
+| Controller | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/controller/CallbackController.java` | `/callback` のクエリ/エラーを `CallbackViewModel` へマッピングし、state が一致しない場合は `error.html` へ遷移。 |
+| Controller | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/controller/TokenController.java` | `/token-request` POST を受け、PKCE 情報を `SessionStateService` からのみ復元。`client_secret` は `application.properties` から注入し、フロントから受け取らない。 |
 | Service | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/service/SessionStateService.java` | HttpSession に保存する state/nonce/code_verifier/code_challenge_method を集約管理。 |
 | Service | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/service/PkceService.java` | PKCE の code_verifier / code_challenge を生成。 |
 | Service | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/service/TokenResponseValidator.java` | Token エンドポイントからの JSON を解析し、`id_token` または `access_token` を `IdTokenValidator` に連携。 |
 | Service | `spring-boot-oidc-client/src/main/java/com/example/oidcclient/service/IdTokenValidator.java` | JWKS 署名・iss/aud/azp/exp/iat/nonce/`at_hash` を検証。`id_token` が無い場合は `access_token` をサロゲートとして検証。 |
 | View | `spring-boot-oidc-client/src/main/resources/templates/*.html` | Thymeleaf テンプレート（`authorization_flow.html`, `callback.html`, `home.html`）。 |
 | Test | `spring-boot-oidc-client/src/test/java/com/example/oidcclient/controller/*Test.java` | MockMvc ベースのコントローラテストおよび統合テスト。 |
-| Documentation | `local/0.4.コントローラ責務分離計画.md` | Controller 責務分離とルーティング設計のメモ。 |
 
 ## アーキテクチャ概要
 
@@ -40,7 +39,8 @@
 1. `GET /authorization-flow` で PKCE バンドルを生成し、フォーム初期表示を行う。
 2. `POST /authorize` で Keycloak の認可エンドポイントへリダイレクトし、state/nonce/code_challenge を付与。
 3. Keycloak から `GET /callback` へリダイレクトされ、クエリを `callback.html` に表示。PKCE セッションスナップショットも併せて確認可能。
-4. UI から `POST /token-request` を実行すると `TokenController` が code_verifier を復元し、`OidcClientService`→`TokenClientService` で token エンドポイントへ POST。
+4. UI から `POST /token-request` を実行すると `TokenController` が state に紐づく code_verifier をセッションから復元し、`OidcClientService`→`TokenClientService` で token エンドポイントへ POST。client_secret はアプリ側設定を使用するためフォームには含めない。
+5. state が一致しない／セッション情報が欠落している場合は `error.html` を表示し、攻撃や二重タブによる干渉を防ぐ。
 5. トークンレスポンスは `TokenResponseValidator` が JSON パースし、`IdTokenValidator` で署名・必須クレームを検証。Keycloak が `id_token` を返さない構成でも `access_token` を JWT として検証するフォールバックを実装済みで、`azp` が `client_id` と一致しない場合は即座にエラーとなる。
 
 ## 設定プロパティ
@@ -50,7 +50,7 @@
 | プレフィックス | 主な項目 | 利用箇所 |
 | --- | --- | --- |
 | `application.oidc.*` | `host`, `context-path` | `OidcClientProperties` → `OidcClientService` が認可/トークンエンドポイントを組み立てる際に利用。 |
-| `application.oidc.client-id`, `application.oidc.issuer` | 固定の `client_id`, `iss` 期待値 | `IdTokenValidator` が `aud`/`azp`/`iss` を照合する際に参照。 |
+| `application.oidc.client-id`, `application.oidc.client-secret`, `application.oidc.issuer` | 固定のクライアント識別子とシークレット、`iss` 期待値 | `TokenController` がクレデンシャルをフォームに注入し、`IdTokenValidator` が `aud`/`azp`/`iss` を照合する際に参照。 |
 | `application.keycloak.mtls.*` | `key-store`, `trust-store` など | `MtlsProperties` → `TokenClientService` が mTLS 用 SSLContext を構築。 |
 | `application.pkce.*` | `code-verifier-size` | `PkceProperties` → `PkceService` が PKCE のサイズバリデーションに使用。 |
 | `application.path.*` | `root`, `home`, `authorization-flow` など | `AppPathProperties` → `SecurityConfig` やコントローラのリクエストマッピングで共有。 |
@@ -90,7 +90,7 @@
    docker compose up -d
    ```
 
-4. `docker compose ps` で `mysql` のヘルスチェックが `healthy` になった後、Keycloak にアクセスしてレルムやクライアント設定を行います。詳細は `local/0.7.ドキュメントとdocker-composeの更新.md` の手順にも記載しています。
+4. `docker compose ps` で `mysql` のヘルスチェックが `healthy` になった後、Keycloak にアクセスしてレルムやクライアント設定を行います。
 
 ### 2. OIDC認可サーバアプリケーション（Keycloak）のアプリケーション設定
 

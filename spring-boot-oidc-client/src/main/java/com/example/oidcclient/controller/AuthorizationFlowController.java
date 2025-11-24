@@ -38,13 +38,12 @@ public class AuthorizationFlowController {
 
     // showForm: PKCE 値（code_verifier, state, nonce）を生成してセッション保存、Thymeleaf に渡す
     @GetMapping("${application.path.authorization-flow:/authorization-flow}")
-    public String showForm(
+        public String showForm(
             @RequestParam(name = "redirect_uri", required = false) String redirectUri,
             @RequestParam(name = "client_id", required = false) String clientId,
+            @RequestParam(name = "scope", required = false) String scope,
             HttpSession session,
             Model model) {
-        // 既存の PKCE コンテキストがあれば破棄してから新しく生成
-        sessionStateService.clearPkceContext(session);
         // PKCE code_verifier をサービスで生成
         String codeVerifier = pkceService.generateVerifier();
         String state = UUID.randomUUID().toString();
@@ -60,7 +59,7 @@ public class AuthorizationFlowController {
         logger.debug("nonce: " + nonce);
 
         // セッションに保存（state に紐付け）
-        sessionStateService.storePkceBundle(session, state, nonce, codeVerifier);
+        sessionStateService.storePkceBundle(session, state, nonce, codeVerifier, codeChallengeMethod);
 
         // Thymeleaf に渡す
         model.addAttribute("code_verifier", codeVerifier);
@@ -71,6 +70,8 @@ public class AuthorizationFlowController {
         // redirect_uri と client_id をテンプレート初期値として渡す（リクエストで渡されていればそれを優先）
         model.addAttribute("redirect_uri", redirectUri != null ? redirectUri : "");
         model.addAttribute("client_id", clientId != null ? clientId : "");
+        String resolvedScope = (scope != null && !scope.isBlank()) ? scope : "openid";
+        model.addAttribute("scope", resolvedScope);
 
         return "authorization_flow";
     }
@@ -95,7 +96,8 @@ public class AuthorizationFlowController {
         if (responseType != null && !responseType.isBlank()) params.put("response_type", responseType);
         if (clientId != null && !clientId.isBlank()) params.put("client_id", clientId);
         if (redirectUri != null && !redirectUri.isBlank()) params.put("redirect_uri", redirectUri);
-        if (scope != null && !scope.isBlank()) params.put("scope", scope);
+        String resolvedScope = (scope != null && !scope.isBlank()) ? scope : "openid";
+        params.put("scope", resolvedScope);
         if (state != null && !state.isBlank()) params.put("state", state);
         if (nonce != null && !nonce.isBlank()) params.put("nonce", nonce);
 
@@ -109,7 +111,7 @@ public class AuthorizationFlowController {
         if (codeChallenge != null && !codeChallenge.isBlank()) {
             params.put("code_challenge", codeChallenge);
             params.put("code_challenge_method", method);
-            sessionStateService.rememberCodeChallengeMethod(session, method);
+            sessionStateService.rememberCodeChallengeMethod(session, state, method);
         }
         
         if (additionalParams != null && !additionalParams.isBlank()) {

@@ -43,6 +43,10 @@
       <input type="text" name="redirect_uri" id="redirect_uri" value="https://localhost:8081/callback" />
     </label>
 
+    <label>scope
+      <input type="text" name="scope" id="scope" th:value="${scope}" value="openid" />
+    </label>
+
     <label>state
       <!-- フロント表示用に state をセット（フォームにも送る） -->
       <input type="text" id="state" name="state">
