@@ -38,18 +38,13 @@ public class AuthorizationFlowController {
 
     // showForm: PKCE 値（code_verifier, state, nonce）を生成してセッション保存、Thymeleaf に渡す
     @GetMapping("${application.path.authorization-flow:/authorization-flow}")
-        public String showForm(
-            @RequestParam(name = "redirect_uri", required = false) String redirectUri,
-            @RequestParam(name = "client_id", required = false) String clientId,
-            @RequestParam(name = "scope", required = false) String scope,
-            HttpSession session,
-            Model model) {
-        // PKCE code_verifier をサービスで生成
-        String codeVerifier = pkceService.generateVerifier();
+    public String showForm(HttpSession session, Model model) {
+        // state, nonceを生成
         String state = UUID.randomUUID().toString();
         String nonce = UUID.randomUUID().toString();
 
-        // S256 code_challenge を生成
+        // PKCEパラメータを生成
+        String codeVerifier = pkceService.generateVerifier();
         String codeChallenge = pkceService.generateChallenge(codeVerifier);
         String codeChallengeMethod = "S256";
 
@@ -67,11 +62,6 @@ public class AuthorizationFlowController {
         model.addAttribute("nonce", nonce);
         model.addAttribute("code_challenge", codeChallenge);
         model.addAttribute("code_challenge_method", codeChallengeMethod);
-        // redirect_uri と client_id をテンプレート初期値として渡す（リクエストで渡されていればそれを優先）
-        model.addAttribute("redirect_uri", redirectUri != null ? redirectUri : "");
-        model.addAttribute("client_id", clientId != null ? clientId : "");
-        String resolvedScope = (scope != null && !scope.isBlank()) ? scope : "openid";
-        model.addAttribute("scope", resolvedScope);
 
         return "authorization_flow";
     }
@@ -87,7 +77,6 @@ public class AuthorizationFlowController {
             @RequestParam(name = "nonce", required = false) String nonce,
             @RequestParam(name = "code_challenge", required = false) String codeChallenge,
             @RequestParam(name = "code_challenge_method", required = false) String codeChallengeMethod,
-            @RequestParam(name = "additional_params", required = false) String additionalParams,
             HttpSession session
     ) {
         String endpoint = oidcClientService.resolveAuthorizationEndpoint(authorizationEndpoint);
@@ -112,20 +101,6 @@ public class AuthorizationFlowController {
             params.put("code_challenge", codeChallenge);
             params.put("code_challenge_method", method);
             sessionStateService.rememberCodeChallengeMethod(session, state, method);
-        }
-        
-        if (additionalParams != null && !additionalParams.isBlank()) {
-            String[] lines = additionalParams.split("\\r?\\n");
-            for (String line : lines) {
-                String l = line.trim();
-                if (l.isEmpty()) continue;
-                int idx = l.indexOf('=');
-                if (idx > 0) {
-                    String k = l.substring(0, idx).trim();
-                    String v = l.substring(idx + 1).trim();
-                    if (!k.isEmpty()) params.put(k, v);
-                }
-            }
         }
 
         String authUrl = oidcClientService.buildAuthorizationRequestUri(endpoint, params);
