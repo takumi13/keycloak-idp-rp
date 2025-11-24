@@ -16,6 +16,8 @@ note right
   GET /authorization-flow
 end note
 rp -> rp : generate state, nonce
+rp -> rp : generate\ncode_verifier, code_challenge
+rp -> rp : store parameters\nin HTTP ession
 rp --> ua : Authorization parameters
 user -> ua: start \nAuthorization Request
 ua -> rp : submit parameters
@@ -58,6 +60,7 @@ activate rp
 note right
   POST /token-request
 end note
+rp -> rp : extract code_challenge\nfrom HTTP session
 rp -> op : Token Request
 
 note right
