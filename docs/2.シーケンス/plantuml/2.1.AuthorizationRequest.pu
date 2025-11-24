@@ -1,0 +1,79 @@
+@startuml
+
+actor user
+participant "UserAgent" as ua
+participant "OIDC Client(RP)" as rp
+participant "Keycloak(OP)" as op
+
+== Authorization Request ==
+
+user -> ua : acccess
+
+activate ua
+
+ua -> rp : Authorization parameter create request
+note right
+  GET /authorization-flow
+end note
+rp -> rp : generate state, nonce
+rp --> ua : Authorization parameters
+user -> ua: start \nAuthorization Request
+ua -> rp : submit parameters
+note right
+  POST /authorize
+end note
+deactivate ua
+
+activate rp
+rp -> rp : confirm\nparameters
+rp --> ua : redirect
+deactivate rp
+
+ua -> op :  Authorization Request
+activate ua
+note right
+  GET /authorize
+end note
+
+op -> op : confirm\nparameters
+op --> ua : display Login Page
+user -> ua : input ID/PW
+ua -> op : submit authentication information
+note right
+  POST /login
+end note
+op -> op : confirm\nID/PW
+op --> ua : redirect
+ua -> rp : Authorization Response with Authorization Code
+deactivate ua
+
+== Token Request ==
+user -> ua : start\nToken Request
+ua -> rp : start Token Request
+note right
+  POST /token-request
+end note
+activate rp
+rp -> rp : confirm\nAuthorization Code
+rp -> op : Token Request
+deactivate rp
+
+note right
+  POST /token
+end note
+
+op -> op : confirm\nparameters
+op --> rp : Token Response with Access Token(JWT)
+
+activate rp
+rp -> rp : decode\nAccess Token(JWT)\nextract id_token
+rp -> rp : verify\nid_token
+rp --> ua : display user information
+deactivate rp
+
+note left
+  for the purpose of
+  demonstoration
+end note
+
+@enduml
