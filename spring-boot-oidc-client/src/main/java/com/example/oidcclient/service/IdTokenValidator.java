@@ -45,7 +45,7 @@ public class IdTokenValidator {
 
     public void validate(String token, String expectedNonce, String accessToken, ValidatedTokenType tokenType) throws Exception {
         if (token == null || token.isBlank()) {
-            throw new IllegalArgumentException("id_token is required for validation");
+            throw new IllegalArgumentException(tokenType + " cannot be blank");
         }
 
         SignedJWT signedJWT = SignedJWT.parse(token);
@@ -63,12 +63,13 @@ public class IdTokenValidator {
         validateIssuer(claims);
         validateAudience(claims, tokenType);
         validateAzp(claims, tokenType);
+        validateSubject(claims);
         validateExpiry(claims);
         validateIssuedAt(claims);
         validateNonce(claims, expectedNonce, tokenType);
         validateAtHash(claims, accessToken, header);
 
-        logger.debug("ID Token validation succeeded for jti={}", claims.getJWTID());
+        logger.debug("{} validation succeeded for jti={}", tokenType, claims.getJWTID());
     }
 
     private void validateIssuer(JWTClaimsSet claims) {
@@ -117,6 +118,15 @@ public class IdTokenValidator {
         } else {
             logValidation("azp", azp != null ? azp : "n/a", true, "single audience");
         }
+    }
+
+    private void validateSubject(JWTClaimsSet claims) {
+        String sub = claims.getSubject();
+        if (sub == null || sub.isBlank()) {
+            logValidation("sub", sub, false, "subject missing");
+            throw new IllegalStateException("sub claim is required");
+        }
+        logValidation("sub", sub, true, null);
     }
 
     private void validateExpiry(JWTClaimsSet claims) {

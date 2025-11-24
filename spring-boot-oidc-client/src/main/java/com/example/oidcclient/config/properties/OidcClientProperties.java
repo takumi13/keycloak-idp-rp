@@ -28,6 +28,9 @@ public class OidcClientProperties {
     /** Optional override for JWKS endpoint. Defaults to host/context + /certs. */
     private String jwksUri;
 
+    /** Client secret used for confidential clients. */
+    private String clientSecret;
+
     /** Cache duration for JWKS fetches. */
     private Duration jwksCacheTtl = Duration.ofMinutes(5);
 
@@ -72,6 +75,14 @@ public class OidcClientProperties {
 
     public void setClientId(String clientId) {
         this.clientId = clientId;
+    }
+
+    public String getClientSecret() {
+        return clientSecret;
+    }
+
+    public void setClientSecret(String clientSecret) {
+        this.clientSecret = clientSecret;
     }
 
     public String getJwksUri() {

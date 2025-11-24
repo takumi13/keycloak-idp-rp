@@ -76,14 +76,7 @@
       <input type="text" id="client_id" name="client_id" value="semi_client">
     </label>
 
-    <label>client_secret
-      <input type="text" id="client_secret" name="client_secret" value="Gx6Yh6Q9mVWyPeg9GDIKgKzTiN8WU5Cf">
-    </label>
-
-    <!-- PKCE: フロントで code_verifier を保持している場合に備え input を追加 -->
-    <label>code_verifier（サーバ側でセッションに保存しているため空のままでもPKCE利用可）
-      <input type="text" id="code_verifier" name="code_verifier" placeholder="（例: ランダムな verifier）">
-    </label>
+    <p class="hint">client_secret・code_verifier はサーバ側セッション／設定で保持しているため送信不要です。</p>
 
     <div class="form-actions">
       <button type="button" class="btn" id="sendBtn">トークン要求送信</button>
@@ -220,29 +213,15 @@
       const codeInput = document.getElementById('code');
       const stateInput = document.getElementById('state');
       const redirectInput = document.getElementById('redirect_uri');
-      const verifierInput = document.getElementById('code_verifier');
 
       if (params.code) codeInput.value = params.code;
       if (params.state) stateInput.value = params.state;
       if (params.redirect_uri) redirectInput.value = params.redirect_uri;
-
-      // PKCE: フロント側で code_verifier を保存している場合は復元して表示
-      // まず URL クエリに code_verifier があれば優先、なければ localStorage/sessionStorage を参照
-      if (params.code_verifier) {
-        verifierInput.value = params.code_verifier;
-      } else {
-        try {
-          const fromLocal = localStorage.getItem('code_verifier') || sessionStorage.getItem('code_verifier');
-          if (fromLocal) verifierInput.value = fromLocal;
-        } catch (e) {
-          // storage access denied 等は無視
-        }
-      }
     }
 
     async function sendTokenRequest() {
       const data = new URLSearchParams();
-      const fields = ['token_endpoint','code','redirect_uri','client_id','client_secret','state','code_verifier'];
+      const fields = ['token_endpoint','code','redirect_uri','client_id','state'];
       fields.forEach(f => {
         const el = document.getElementById(f);
         if (!el) return;
@@ -281,6 +260,11 @@
             const decoded = decodeJwtPayload(parsed.access_token);
             out += '\n\nDecoded access_token payload:\n';
             out += decoded ? formatJson(decoded) : '(unable to decode JWT payload)';
+          }
+          if (parsed.id_token) {
+            const decodedId = decodeJwtPayload(parsed.id_token);
+            out += '\n\nDecoded id_token payload:\n';
+            out += decodedId ? formatJson(decodedId) : '(unable to decode JWT payload)';
           }
         } else {
           // JSON でなければ生のレスポンスを表示

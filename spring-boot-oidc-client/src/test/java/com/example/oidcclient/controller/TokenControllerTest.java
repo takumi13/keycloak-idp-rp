@@ -60,8 +60,8 @@ class TokenControllerTest {
         String nonce = "nonce-123";
         String codeVerifier = "code-verifier-123";
 
-        sessionStateService.storePkceBundle(session, state, nonce, codeVerifier);
-        sessionStateService.rememberCodeChallengeMethod(session, "S256");
+        sessionStateService.storePkceBundle(session, state, nonce, codeVerifier, "S256");
+        sessionStateService.rememberCodeChallengeMethod(session, state, "S256");
 
         mockMvc.perform(post(appPathProperties.getTokenRequest())
                         .session(session)

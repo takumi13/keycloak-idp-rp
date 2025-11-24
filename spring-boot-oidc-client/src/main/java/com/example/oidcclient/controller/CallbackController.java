@@ -2,6 +2,7 @@ package com.example.oidcclient.controller;
 
 import com.example.oidcclient.controller.model.CallbackViewModel;
 import com.example.oidcclient.service.SessionStateService;
+import com.example.oidcclient.service.SessionStateService.PkceContext;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -27,17 +28,33 @@ public class CallbackController {
                            HttpSession session,
                            Model model) {
         Map<String, List<String>> orderedParams = toLinkedMap(requestParams);
+        String state = firstValue(requestParams, "state");
+        PkceContext pkceContext = sessionStateService.loadPkceContext(session, state);
+        if (!isValidState(state, pkceContext)) {
+            model.addAttribute("error_message", "State mismatch detected");
+            model.addAttribute("error_detail", state == null || state.isBlank()
+                    ? "Authorization response did not include a state parameter."
+                    : "No PKCE context exists for state=" + state);
+            return "error";
+        }
         CallbackViewModel viewModel = new CallbackViewModel(
                 firstValue(requestParams, "code"),
-                firstValue(requestParams, "state"),
+                state,
                 firstValue(requestParams, "redirect_uri"),
                 firstValue(requestParams, "error"),
                 firstValue(requestParams, "error_description"),
                 orderedParams,
-                sessionStateService.loadPkceContext(session)
+                pkceContext
         );
         model.addAttribute("callback", viewModel);
         return "callback";
+    }
+
+    private boolean isValidState(String state, PkceContext context) {
+        if (state == null || state.isBlank()) {
+            return false;
+        }
+        return context != null && !context.isEmpty() && state.equals(context.state());
     }
 
     private Map<String, List<String>> toLinkedMap(MultiValueMap<String, String> params) {

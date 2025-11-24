@@ -1,10 +1,12 @@
 package com.example.oidcclient.controller;
 
 import com.example.oidcclient.config.properties.AppPathProperties;
+import com.example.oidcclient.service.SessionStateService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -22,11 +24,28 @@ public class CallbackControllerTest {
     @Autowired
     private AppPathProperties appPathProperties;
 
+    @Autowired
+    private SessionStateService sessionStateService;
+
     @Test
     void callbackViewHasModel() throws Exception {
-        mockMvc.perform(get(appPathProperties.getCallback()).param("code", "auth-code").param("state", "abc"))
+        MockHttpSession session = new MockHttpSession();
+        sessionStateService.storePkceBundle(session, "abc", "nonce", "code-verifier", "S256");
+
+        mockMvc.perform(get(appPathProperties.getCallback())
+                        .param("code", "auth-code")
+                        .param("state", "abc")
+                        .session(session))
                 .andExpect(status().isOk())
                 .andExpect(view().name("callback"))
                 .andExpect(model().attributeExists("callback"));
+    }
+
+    @Test
+    void callbackReturnsErrorWhenStateMissing() throws Exception {
+        mockMvc.perform(get(appPathProperties.getCallback()).param("code", "auth-code"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("error"))
+                .andExpect(model().attributeExists("error_message", "error_detail"));
     }
 }

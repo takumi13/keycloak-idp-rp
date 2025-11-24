@@ -38,28 +38,26 @@ public class TokenResponseValidator {
         }
         JsonNode idTokenNode = root.get("id_token");
         String idToken = idTokenNode != null && idTokenNode.isString() ? idTokenNode.stringValue() : null;
-        JsonNode accessTokenNode = root.path("access_token");
-        String accessToken = accessTokenNode.isString() ? accessTokenNode.stringValue() : null;
+        JsonNode accessTokenNode = root.get("access_token");
+        String accessToken = accessTokenNode != null && accessTokenNode.isString() ? accessTokenNode.stringValue() : null;
 
-        if ((idToken == null || idToken.isBlank()) && (accessToken == null || accessToken.isBlank())) {
+        boolean hasIdToken = idToken != null && !idToken.isBlank();
+        boolean hasAccessToken = accessToken != null && !accessToken.isBlank();
+        if (!hasIdToken && !hasAccessToken) {
             logger.debug("Token response does not include id_token nor access_token; skipping validation");
             return;
         }
 
-        String jwtToValidate;
-        String accessTokenForAtHash;
-        ValidatedTokenType tokenType;
-        if (idToken != null && !idToken.isBlank()) {
-            jwtToValidate = idToken;
-            accessTokenForAtHash = accessToken;
-            tokenType = ValidatedTokenType.ID_TOKEN;
+        if (hasIdToken) {
+            idTokenValidator.validate(idToken, expectedNonce, accessToken, ValidatedTokenType.ID_TOKEN);
         } else {
-            jwtToValidate = accessToken;
-            accessTokenForAtHash = null;
-            tokenType = ValidatedTokenType.ACCESS_TOKEN;
-            logger.debug("Token response omitted id_token. Validating access_token as ID token payload");
+            logger.debug("Token response omitted id_token; skipping ID Token validation step");
         }
 
-        idTokenValidator.validate(jwtToValidate, expectedNonce, accessTokenForAtHash, tokenType);
+        if (hasAccessToken) {
+            idTokenValidator.validate(accessToken, null, null, ValidatedTokenType.ACCESS_TOKEN);
+        } else {
+            logger.debug("Token response omitted access_token; skipping access_token JWT validation");
+        }
     }
 }
