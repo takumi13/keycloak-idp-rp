@@ -1,0 +1,109 @@
+@startuml
+
+actor user
+participant "UserAgent" as ua
+participant "OIDC Client(RP)" as rp
+participant "Keycloak(OP)" as op
+
+== PAR: Pushed Authorization Request ==
+
+user -> ua : access protected resource
+
+activate ua
+ua -> rp : Authorization flow start request
+note right
+  GET /authorization-flow
+end note
+
+activate rp
+rp -> rp : generate state, nonce
+rp -> rp : generate\ncode_verifier, code_challenge
+rp -> rp : store parameters\nin HTTP session
+rp --> ua : Authorization parameters\n(or HTML/JS to start auth)
+deactivate rp
+
+ua --> user : show "Login with OP" page
+
+user -> ua : click "Login with OP"
+ua -> rp : submit authorization parameters
+note right
+  POST /authorize-PAR
+end note
+deactivate ua
+
+activate rp
+rp -> rp : confirm parameters
+rp -> rp : generate JWS of\nAuthorization Request (Request Object, JAR)
+
+' === RP -> OP: PAR (バックチャネル, mTLS) ===
+rp -> op : PAR with mTLS and response_mode=jwt
+note right
+  POST /realms/{realm}/protocol/openid-connect/par
+  Content-Type: application/x-www-form-urlencoded
+  client_id, request=<JWT> ...
+end note
+deactivate rp
+
+activate op
+op -> op : verify client certificate\n(mTLS client authentication)
+op -> op : validate Request Object\n& check parameters
+op -> op : create request_uri
+op --> rp : 201 Created\n{ request_uri, expires_in }
+deactivate op
+
+' === RP -> UA: 認可エンドポイントへのリダイレクト ===
+activate rp
+rp --> ua : redirect to Authorization Endpoint\nwith client_id & request_uri
+note right
+  302 Location: /realms/{realm}/protocol/openid-connect/auth
+    ?client_id=...
+    &request_uri=...
+end note
+deactivate rp
+
+activate ua
+ua -> op : Authorization Request\nwith request_uri and client_id
+note right
+  GET /realms/{realm}/protocol/openid-connect/auth
+    ?client_id=...
+    &request_uri=...
+end note
+
+activate op
+op -> op : resolve request_uri\nand restore Request Object
+op -> op : confirm parameters
+op --> ua : display Login Page
+deactivate op
+
+user -> ua : input ID/PW
+ua -> op : submit authentication information
+note right
+  POST /login
+end note
+
+activate op
+op -> op : verify ID/PW and\ncomplete authentication
+
+== JARM: JWT Secured Authorization Response Mode ==
+
+op -> op : create Authorization Response JARM (JWT)
+op --> ua : redirect to RP's redirect_uri
+note right
+  302 Location: https://rp.example.com/callback
+    ?response=eyJhbGciOi...
+    &state=...
+end note
+deactivate op
+
+ua -> rp : Authorization Response (JWT in query parameter)
+note right
+  GET /callback?response=...&state=...
+end note
+deactivate ua
+
+activate rp
+rp -> rp : verify JWT signature\nand verify claims (iss, aud, exp, state, etc.)
+rp -> rp : extract Authorization Code\nfrom JARM (JWT)
+deactivate rp
+
+@enduml
