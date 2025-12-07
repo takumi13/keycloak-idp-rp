@@ -16,6 +16,8 @@ note right
   GET /authorization-flow
 end note
 rp -> rp : generate state, nonce
+rp -> rp : generate\ncode_verifier, code_challenge
+rp -> rp : store parameters\nin HTTP ession
 rp --> ua : Authorization parameters
 user -> ua: start \nAuthorization Request
 ua -> rp : submit parameters
@@ -44,30 +46,32 @@ note right
 end note
 op -> op : confirm\nID/PW
 op --> ua : redirect
-ua -> rp : Authorization Response with Authorization Code
+ua -> rp : Authorization Response
 deactivate ua
 
+rp -> rp : verify state\nextract Authorization Code
+
 == Token Request ==
+
 user -> ua : start\nToken Request
+
 ua -> rp : start Token Request
+activate rp
 note right
   POST /token-request
 end note
-activate rp
-rp -> rp : confirm\nAuthorization Code
+rp -> rp : extract code_challenge\nfrom HTTP session
 rp -> op : Token Request
-deactivate rp
 
 note right
   POST /token
 end note
 
 op -> op : confirm\nparameters
-op --> rp : Token Response with Access Token(JWT)
+op --> rp : Token Response
 
-activate rp
-rp -> rp : decode\nAccess Token(JWT)\nextract id_token
-rp -> rp : verify\nid_token
+rp -> rp : verify Access Token(JWT)\nverify id_token
+rp -> rp : extract user information
 rp --> ua : display user information
 deactivate rp
 
