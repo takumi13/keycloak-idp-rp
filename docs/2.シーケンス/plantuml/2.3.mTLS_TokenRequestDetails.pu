@@ -1,0 +1,48 @@
+@startuml mTLS_Token_Request_Details
+
+participant "TokenController" as controller
+participant "TokenClientService" as tokenSvc
+participant "KeycloakHttpClientFactory" as factory
+participant "HttpClient (mTLS)" as httpClient
+participant "Keycloak (OP)" as keycloak
+
+== Request preparation ==
+controller -> tokenSvc : POST /token-request
+activate tokenSvc
+note right
+  Extract code/state from session
+  and build form parameters
+end note
+
+tokenSvc -> factory : getHttpClient()
+activate factory
+note right
+  Returns HttpClient initialized with
+  SSLContext (KeyStore + TrustStore)
+end note
+factory --> tokenSvc : HttpClient (mTLS)
+deactivate factory
+
+== mTLS handshake ==
+tokenSvc -> httpClient : HTTPS POST /token
+activate httpClient
+httpClient -> keycloak : ClientHello + client cert
+keycloak -> httpClient : ServerHello + server cert
+keycloak -> keycloak : verify client certificate
+httpClient -> httpClient : verify server certificate
+
+== Token Response ==
+httpClient -> keycloak : send form-encoded body
+keycloak -> keycloak : confirm parameters
+keycloak -> keycloak : issue tokens
+keycloak --> httpClient : Token Response\n(HTTP 200 + token JSON)
+httpClient --> tokenSvc : response body
+
+tokenSvc -> tokenSvc : TokenResponseValidator.validate()
+tokenSvc --> controller : token JSON
+controller --> controller : render response to UI
+
+deactivate httpClient
+deactivate tokenSvc
+
+@enduml
